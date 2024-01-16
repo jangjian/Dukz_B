@@ -1,19 +1,21 @@
-function uploadImage() {
+// script.js
+async function uploadImage() {
     const form = document.getElementById('uploadForm');
     const formData = new FormData(form);
 
-    fetch('http://localhost:3000/upload', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        const resultDiv = document.getElementById('result');
-        if (data.success) {
-            resultDiv.innerHTML = `<p>${data.message}</p><img src="uploads/${data.image_url}" alt="Uploaded Image">`;
-        } else {
-            resultDiv.innerHTML = `<p>${data.message}</p>`;
+    try {
+        const response = await axios.post('http://localhost:3000/user/upload', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+
+        console.log('Image upload response:', response.data);
+
+        if (response.data.success) {
+            console.log('Image upload successful!');
         }
-    })
-    .catch(error => console.error('Error:', error));
+    } catch (error) {
+        console.error('Error during image upload:', error);
+    }
 }
