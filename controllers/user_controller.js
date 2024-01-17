@@ -1,4 +1,3 @@
-// user_controller.js
 const mysql = require('mysql2');
 const randomstring = require('randomstring');
 const nodemailer = require('nodemailer');
@@ -25,22 +24,6 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage }).single('profile_image');
 
-// 이미지 업로드 컨트롤러
-exports.uploadImage = (req, res) => {
-    // 이미지 업로드 처리
-    upload(req, res, function (uploadErr) {
-        if (uploadErr instanceof multer.MulterError) {
-            return res.status(500).json({ success: false, message: '이미지 업로드 실패' });
-        } else if (uploadErr) {
-            console.error('Upload Error:', uploadErr);
-        return res.status(500).json({ success: false, message: '서버 오류 발생', error: uploadErr.message });
-    }
-
-    const image_url = req.file ? `/uploads/${req.file.filename}` : null;
-    res.status(200).json({ success: true, message: '이미지 업로드 성공', image_url });
-  });
-};
-
 // 회원가입 컨트롤러(이메일)
 exports.signup = (req, res) => {
     const { email } = req.body;
@@ -57,6 +40,20 @@ exports.signup = (req, res) => {
       const userId = result.insertId;
       res.status(200).json({ message: 'User registered successfully', userId });
     });
+};
+
+// 이메일 중복 확인 컨트롤러
+exports.emailDuplicate = (req, res) => {
+  const { email } = req.body;
+  const checkDuplicateSql = 'SELECT COUNT(*) AS count FROM user WHERE email = ?';
+  connection.query(checkDuplicateSql, [email], (err, result) => {
+    if (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error checking duplicate user' });
+      return;
+    }
+    res.status(200).json({ isDuplicate: result[0].count > 0 });
+  });
 };
 
 // 회원가입 컨트롤러 2 (아이디)
@@ -130,7 +127,7 @@ exports.signup5 = (req, res) => {
         const image_url = req.file ? `/uploads/${req.file.filename}` : null;
 
         // 회원가입 정보 업데이트
-        const { userId} = req.body;
+        const {userId} = req.body;
         const sql = 'UPDATE user SET image_url = ? WHERE id = ?';
         connection.query(sql, [image_url, userId], (err, updateResult) => {
             if (err) {
@@ -179,6 +176,7 @@ exports.certificate = async (req, res) => {
             감사합니다.
         </p>`,
       };
+      
       const insertAuthCodeSql = 'INSERT INTO verification_codes (email, code) VALUES (?, ?)';
       connection.query(insertAuthCodeSql, [email, verificationCode], async (insertErr, insertResult) => {
         if (insertErr) {
@@ -195,6 +193,7 @@ exports.certificate = async (req, res) => {
         }
       });
     });
+    
 };
 
 // 인증번호 확인 함수
@@ -249,5 +248,25 @@ exports.login = (req, res) => {
         }
         res.status(200).json(userData);
       });
+  });
+};
+
+// 이미지 경로 값 불러오기
+exports.getUrl = (req, res) => {
+  const { userid } = req.body;
+
+  const getUserRulesSql = 'SELECT image_url FROM user WHERE userid = ?';
+  connection.query(getUserRulesSql, [userid], (err, result) => {
+    if (err) {
+      console.error(err);
+      res.status(500).json({ error: '이미지를 불러오던 중 오류가 발생했습니다.' });
+      return;
+    }
+    
+    // 결과를 JSON 형식으로 응답합니다.
+    res.status(200).json({
+      image_url: image_url,
+      
+    });
   });
 };
