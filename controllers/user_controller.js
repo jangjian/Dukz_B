@@ -59,12 +59,12 @@ exports.signup = (req, res) => {
     });
 };
 
-// 회원가입 컨트롤러 2 (아이디, 비밀번호)
+// 회원가입 컨트롤러 2 (아이디)
 exports.signup2 = (req, res) => {
-    const { userId, userid, pw } = req.body;
+    const { userId, userid } = req.body;
   
-    const sql = 'UPDATE user SET userid = ?, password = ? WHERE id = ?';
-    connection.query(sql, [userid, pw, userId], (err, updateResult) => {
+    const sql = 'UPDATE user SET userid = ? WHERE id = ?';
+    connection.query(sql, [userid, userId], (err, updateResult) => {
       if (err) {
         console.error(err);
         res.status(500).json({ error: 'Error updating user information' });
@@ -74,8 +74,50 @@ exports.signup2 = (req, res) => {
     });
 };
 
+// 아이디 중복 확인 컨트롤러
+exports.checkDuplicate = (req, res) => {
+  const { userid } = req.body;
+  const checkDuplicateSql = 'SELECT COUNT(*) AS count FROM user WHERE userid = ?';
+  connection.query(checkDuplicateSql, [userid], (err, result) => {
+    if (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error checking duplicate user' });
+      return;
+    }
+    res.status(200).json({ isDuplicate: result[0].count > 0 });
+  });
+};
+
+// 회원가입 컨트롤러 3 (비밀번호)
+exports.signup3 = (req,res) => {
+  const {userId, pw} = req.body;
+  const sql = 'UPDATE user SET pw = ? WHERE id = ?';
+  connection.query(sql, [pw, userId], (err, updateResult)=>{
+    if(err){
+      console.error(err);
+      res.status(500).json({ error: 'Error updating user information' });
+        return;
+      }
+      res.status(200).json({ message: 'User registered successfully' });
+  })
+}
+
+// 회원가입 컨트롤러 4 (닉네임)
+exports.signup4 = (req,res) => {
+  const {userId, name} = req.body;
+  const sql = 'UPDATE user SET name = ? WHERE id = ?';
+  connection.query(sql, [name, userId], (err, updateResult)=>{
+    if(err){
+      console.error(err);
+      res.status(500).json({ error: 'Error updating user information' });
+        return;
+      }
+      res.status(200).json({ message: 'User registered successfully' });
+  })
+}
+
 // 최종 회원가입 및 이미지 업로드 컨트롤러
-exports.signup3 = (req, res) => {
+exports.signup5 = (req, res) => {
     // 이미지 업로드 처리
     upload(req, res, function (uploadErr) {
         if (uploadErr instanceof multer.MulterError) {
@@ -88,9 +130,9 @@ exports.signup3 = (req, res) => {
         const image_url = req.file ? `/uploads/${req.file.filename}` : null;
 
         // 회원가입 정보 업데이트
-        const { name, birth } = req.body;
-        const sql = 'UPDATE user SET name = ?, birth = ?, image_url = ? WHERE id = ?';
-        connection.query(sql, [name, birth, image_url, userId], (err, updateResult) => {
+        const { userId} = req.body;
+        const sql = 'UPDATE user SET image_url = ? WHERE id = ?';
+        connection.query(sql, [image_url, userId], (err, updateResult) => {
             if (err) {
                 console.error(err);
                 res.status(500).json({ error: 'Error updating user information' });
@@ -98,20 +140,6 @@ exports.signup3 = (req, res) => {
             }
             res.status(200).json({ success: true, message: 'User registered successfully', image_url });
         });
-    });
-};
-
-// 아이디 중복 확인 컨트롤러
-exports.checkDuplicate = (req, res) => {
-    const { userid } = req.body;
-    const checkDuplicateSql = 'SELECT COUNT(*) AS count FROM user WHERE userid = ?';
-    connection.query(checkDuplicateSql, [userid], (err, result) => {
-      if (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Error checking duplicate user' });
-        return;
-      }
-      res.status(200).json({ isDuplicate: result[0].count > 0 });
     });
 };
 
@@ -190,4 +218,36 @@ exports.checkAuthCode = (req, res) => {
       // 인증 성공
       return res.status(200).json({ message: '인증번호가 확인되었습니다.' });
     });
+};
+
+// 로그인 컨트롤러
+exports.login = (req, res) => {
+  const { userid, pw } = req.body;
+    const token = randomstring.generate(40);
+    const sql = 'SELECT * FROM user WHERE userid = ? AND pw = ?';
+    connection.query(sql, [userid, pw], (err, result) => {
+      if (err) {
+        console.error(err);
+        res.status(500).json({ error: '로그인 중 오류가 발생했습니다.' });
+        return;
+      }
+      if (result.length === 0) {
+        res.status(401).json({ error: '잘못된 자격 증명' });
+        return;
+      }
+      const userData = {
+        userid: result[0].userid,
+        token: token,
+        hasProfile: result[0].hasProfile, 
+      };
+      // 사용자 정보에 토큰 업데이트
+      connection.query('UPDATE user SET accesstoken = ? WHERE userid = ?', [token, userid], (updateErr, updateResult) => {
+        if (updateErr) {
+          console.error(updateErr);
+          res.status(500).json({ error: '토큰 업데이트 중 오류가 발생했습니다.' });
+          return;
+        }
+        res.status(200).json(userData);
+      });
+  });
 };
