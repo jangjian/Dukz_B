@@ -3,7 +3,7 @@ const randomstring = require('randomstring');
 const nodemailer = require('nodemailer');
 const connection = mysql.createConnection({
   host: 'database-1.c7gky688wshv.ap-northeast-3.rds.amazonaws.com',
-  user: 'root',
+  user: 'dukz',
   password: 'yopamipa7541',
   database: 'dukz_db'
 });
