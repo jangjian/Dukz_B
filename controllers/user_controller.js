@@ -2,9 +2,9 @@ const mysql = require('mysql2');
 const randomstring = require('randomstring');
 const nodemailer = require('nodemailer');
 const connection = mysql.createConnection({
-  host: 'database-1.c7gky688wshv.ap-northeast-3.rds.amazonaws.com',
-  user: 'dukz',
-  password: 'yopamipa7541',
+  host: 'localhost',
+  user: 'root',
+  password: '1011',
   database: 'dukz_db'
 });
 
@@ -333,3 +333,110 @@ exports.getName = (req, res) => {
     });
   });
 };
+
+// 일지를 저장하는 컨트롤러
+exports.saveDiary = (req, res) => {
+  const { title, content, subtitle, userid, regionId } = req.body;
+  const createDate = new Date();
+
+  // 1. 사용자 정보 조회
+  const getUserIdQuery = 'SELECT id FROM user WHERE userid = ?';
+  connection.query(getUserIdQuery, [userid], (userErr, userResult) => {
+    if (userErr) {
+      console.error(userErr);
+      return res.status(500).json({ error: 'Error retrieving user information' });
+    }
+
+    if (userResult.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userId = userResult[0].id;
+
+    // 2. 일지 저장
+    const saveDiaryQuery = 'INSERT INTO diary (title, content, subtitle, createDate, regionId) VALUES (?, ?, ?, ?, ?)';
+    const diaryValues = [title, content, subtitle, createDate, regionId];
+
+    connection.query(saveDiaryQuery, diaryValues, (diaryErr, diaryResult) => {
+      if (diaryErr) {
+        console.error(diaryErr);
+        return res.status(500).json({ error: 'Error saving diary' });
+      }
+
+      const diaryId = diaryResult.insertId;
+
+      // 3. 지역 정보 저장
+      const saveRegionQuery = 'INSERT INTO diaryregion (diaryId, userId, regionId) VALUES (?, ?, ?)';
+      const regionValues = [diaryId, userId, regionId];
+
+      connection.query(saveRegionQuery, regionValues, (regionErr) => {
+        if (regionErr) {
+          console.error(regionErr);
+          return res.status(500).json({ error: 'Error saving region information' });
+        }
+
+        res.status(200).json({ message: 'Diary and region information saved successfully' });
+      });
+    });
+  });
+};
+
+// 일지의 장르 정보 저장 컨트롤러
+exports.saveDiaryGenre = (req, res) => {
+  const { diaryId, genreId } = req.body;
+
+  // DiaryGenre 테이블에 일지의 장르 정보 저장
+  const insertDiaryGenreQuery = 'INSERT INTO DiaryGenre (diaryId, genreId) VALUES (?, ?)';
+  const values = [diaryId, genreId];
+
+  connection.query(insertDiaryGenreQuery, values, (insertErr) => {
+    if (insertErr) {
+      console.error(insertErr);
+      return res.status(500).json({ error: 'Error inserting diary genre information' });
+    }
+
+    res.status(200).json({ message: 'Diary genre information saved successfully' });
+  });
+};
+
+// 사용자의 선호하는 장르 기반으로 추천 일지 가져오기
+exports.getRecommendedDiaries = (req, res) => {
+  const { userid } = req.body;
+
+  // 1. 사용자의 선호하는 장르 가져오기
+  const getUserGenresQuery = 'SELECT genreId FROM UserGenrePreference WHERE userId = ?';
+  connection.query(getUserGenresQuery, [userid], (err, result) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Error retrieving user genre preferences' });
+    }
+
+    if (result.length === 0) {
+      return res.status(404).json({ error: 'User genre preferences not found' });
+    }
+
+    // 2. 장르별 일지 가져오기
+    const genreIds = result.map((row) => row.genreId);
+    const getDiariesByGenresQuery = 'SELECT DISTINCT diaryId FROM DiaryGenre WHERE genreId IN (?)';
+    connection.query(getDiariesByGenresQuery, [genreIds], (diaryErr, diaryResult) => {
+      if (diaryErr) {
+        console.error(diaryErr);
+        return res.status(500).json({ error: 'Error retrieving diaries by genres' });
+      }
+
+      if (diaryResult.length === 0) {
+        return res.status(404).json({ error: 'No diaries found for the specified genres' });
+      }
+
+      // 3. 추천 로직 적용 (예시: 간단하게 처음 일지 선택)
+      const recommendedDiaryId = diaryResult[0].diaryId;
+
+      // 4. 클라이언트에게 전달
+      return res.status(200).json({ recommendedDiaryId });
+    });
+  });
+};
+
+
+
+
