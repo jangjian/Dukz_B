@@ -9,6 +9,8 @@ router.post('/signup2', userController.signup2);
 router.post('/signup3', userController.signup3);
 router.post('/signup4', userController.signup4);
 router.post('/signup5', userController.signup5);
+router.post('/signup6', userController.signup6);
+router.post('/signup7', userController.signup7);
 
 // 아이디 중복확인 라우트
 router.post('/checkDuplicate', userController.checkDuplicate);
@@ -26,6 +28,9 @@ router.post("/checkAuthCode", userController.checkAuthCode);
 router.post("/login", userController.login);
 
 // 이미지 불러오기 라우트 
-router.get("/getUrl", getUser, userController.getUrl);
+router.get("/getUrl",userController.getUrl);
+
+// 이름 불러오기 라우트 
+router.post("/getName",userController.getName);
 
 module.exports = router;

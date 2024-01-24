@@ -2,9 +2,9 @@ const mysql = require('mysql2');
 const randomstring = require('randomstring');
 const nodemailer = require('nodemailer');
 const connection = mysql.createConnection({
-  host: 'localhost',
+  host: 'database-1.c7gky688wshv.ap-northeast-3.rds.amazonaws.com',
   user: 'root',
-  password: '1011',
+  password: 'yopamipa7541',
   database: 'dukz_db'
 });
 
@@ -58,10 +58,10 @@ exports.emailDuplicate = (req, res) => {
 
 // 회원가입 컨트롤러 2 (아이디)
 exports.signup2 = (req, res) => {
-    const { userId, userid } = req.body;
+    const { email, userid } = req.body;
   
-    const sql = 'UPDATE user SET userid = ? WHERE id = ?';
-    connection.query(sql, [userid, userId], (err, updateResult) => {
+    const sql = 'UPDATE user SET userid = ? WHERE email = ?';
+    connection.query(sql, [userid, email], (err, updateResult) => {
       if (err) {
         console.error(err);
         res.status(500).json({ error: 'Error updating user information' });
@@ -87,9 +87,9 @@ exports.checkDuplicate = (req, res) => {
 
 // 회원가입 컨트롤러 3 (비밀번호)
 exports.signup3 = (req,res) => {
-  const {userId, pw} = req.body;
-  const sql = 'UPDATE user SET pw = ? WHERE id = ?';
-  connection.query(sql, [pw, userId], (err, updateResult)=>{
+  const {email, pw} = req.body;
+  const sql = 'UPDATE user SET pw = ? WHERE email = ?';
+  connection.query(sql, [pw, email], (err, updateResult)=>{
     if(err){
       console.error(err);
       res.status(500).json({ error: 'Error updating user information' });
@@ -97,13 +97,13 @@ exports.signup3 = (req,res) => {
       }
       res.status(200).json({ message: 'User registered successfully' });
   })
-}
+};
 
 // 회원가입 컨트롤러 4 (닉네임)
 exports.signup4 = (req,res) => {
-  const {userId, name} = req.body;
-  const sql = 'UPDATE user SET name = ? WHERE id = ?';
-  connection.query(sql, [name, userId], (err, updateResult)=>{
+  const {email, name} = req.body;
+  const sql = 'UPDATE user SET name = ? WHERE email = ?';
+  connection.query(sql, [name, email], (err, updateResult)=>{
     if(err){
       console.error(err);
       res.status(500).json({ error: 'Error updating user information' });
@@ -111,9 +111,9 @@ exports.signup4 = (req,res) => {
       }
       res.status(200).json({ message: 'User registered successfully' });
   })
-}
+};
 
-// 최종 회원가입 및 이미지 업로드 컨트롤러
+// 회원가입 및 이미지 업로드 (컨트롤러)
 exports.signup5 = (req, res) => {
     // 이미지 업로드 처리
     upload(req, res, function (uploadErr) {
@@ -125,11 +125,10 @@ exports.signup5 = (req, res) => {
         }
 
         const image_url = req.file ? `/uploads/${req.file.filename}` : null;
-
         // 회원가입 정보 업데이트
-        const {userId} = req.body;
-        const sql = 'UPDATE user SET image_url = ? WHERE id = ?';
-        connection.query(sql, [image_url, userId], (err, updateResult) => {
+        const {email} = req.body;
+        const sql = 'UPDATE user SET image_url = ? WHERE email = ?';
+        connection.query(sql, [image_url, email], (err, updateResult) => {
             if (err) {
                 console.error(err);
                 res.status(500).json({ error: 'Error updating user information' });
@@ -138,6 +137,51 @@ exports.signup5 = (req, res) => {
             res.status(200).json({ success: true, message: 'User registered successfully', image_url });
         });
     });
+};
+
+// 회원가입 컨트롤러 6 (생년월일)
+exports.signup6 = (req,res) => {
+  const {email, birth} = req.body;
+  const sql = 'UPDATE user SET birth = ? WHERE email = ?';
+  connection.query(sql, [birth, email], (err, updateResult)=>{
+    if(err){
+      console.error(err);
+      res.status(500).json({ error: 'Error updating user information' });
+        return;
+      }
+      res.status(200).json({ message: 'User registered successfully' });
+  })
+};
+
+// 사용자의 장르 선호를 저장하는 컨트롤러
+exports.signup7 = (req, res) => {
+  const { email, genres } = req.body;
+
+  const getUserIdQuery = 'SELECT id FROM user WHERE email = ?';
+  connection.query(getUserIdQuery, [email], (err, result) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Error retrieving user information' });
+    }
+
+    if (result.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userId = result[0].id;
+
+    const insertGenresQuery = 'INSERT INTO UserGenrePreference (userId, genreId) VALUES ?';
+    const values = genres.map((genreId) => [userId, genreId]);
+
+    connection.query(insertGenresQuery, [values], (insertErr) => {
+      if (insertErr) {
+        console.error(insertErr);
+        return res.status(500).json({ error: 'Error inserting genre preferences' });
+      }
+
+      res.status(200).json({ message: 'Genre preferences saved successfully' });
+    });
+  });
 };
 
 // 이메일 인증 코드 요청 컨트롤러
@@ -162,8 +206,8 @@ exports.certificate = async (req, res) => {
       const mailOptions = {
         to: email,
         subject: "이메일 인증",
-        html: `    <div style="margin: 5%; margin-bottom: 6px;"><p style="width: 50%; color:#FF6666; font-weight: bolder; font-size: 50px; margin-bottom: 0">JAMDA</p></div>
-        <div style="height: 2px; width: 90%; margin-left: 5%; background-color: #FF8585;"></div>
+        html: `    <div style="margin: 5%; margin-bottom: 6px;"><p style="width: 50%; color:#F8AC0B; font-weight: bolder; font-size: 50px; margin-bottom: 0">Duk'z</p></div>
+        <div style="height: 2px; width: 90%; margin-left: 5%; background-color: #F8AC0B;"></div>
         <h2 style="margin-left: 5%; margin-top: 30px; margin-bottom: 30px;">고객님의 인증번호는 다음과 같습니다.</h2>
         <div style=" height: 230px; width: 90%; margin-left: 5%; border: 2px solid #C1C1C1">
             <p style="color: #6B6B6B; text-align: center;">아래 인증번호 5자리를 인증번호 입력창에 입력해주세요</p>
@@ -263,10 +307,29 @@ exports.getUrl = (req, res) => {
       return;
     }
     
-    // 결과를 JSON 형식으로 응답합니다.
     res.status(200).json({
       image_url: image_url,
       
+    });
+  });
+};
+
+// 사용자 정보 불러오기
+exports.getName = (req, res) => {
+  const { userid } = req.body;
+
+  const getUserRulesSql = 'SELECT name FROM user WHERE userid = ?';
+  connection.query(getUserRulesSql, [userid], (err, result) => {
+    if (err) {
+      console.error(err);
+      res.status(500).json({ error: '이미지를 불러오던 중 오류가 발생했습니다.' });
+      return;
+    }
+
+    const userName = result[0].name;
+    
+    res.status(200).json({
+      name: userName
     });
   });
 };
