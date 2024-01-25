@@ -2,7 +2,7 @@ const mysql = require('mysql2');
 const randomstring = require('randomstring');
 const nodemailer = require('nodemailer');
 const connection = mysql.createConnection({
-  host: 'localhost',
+  host: '127.0.0.1',
   user: 'root',
   password: '1011',
   database: 'dukz_db'
@@ -295,25 +295,6 @@ exports.login = (req, res) => {
   });
 };
 
-// 이미지 경로 값 불러오기
-exports.getUrl = (req, res) => {
-  const { userid } = req.body;
-
-  const getUserRulesSql = 'SELECT image_url FROM user WHERE userid = ?';
-  connection.query(getUserRulesSql, [userid], (err, result) => {
-    if (err) {
-      console.error(err);
-      res.status(500).json({ error: '이미지를 불러오던 중 오류가 발생했습니다.' });
-      return;
-    }
-    
-    res.status(200).json({
-      image_url: image_url,
-      
-    });
-  });
-};
-
 // 사용자 정보 불러오기
 exports.getName = (req, res) => {
   const { userid } = req.body;
@@ -437,6 +418,84 @@ exports.getRecommendedDiaries = (req, res) => {
   });
 };
 
+// 사용자 이미지 URL 불러오기 컨트롤러
+exports.getUrl = (req, res) => {
+  const { userid } = req.body;
+
+  const getUserImageQuery = 'SELECT image_url FROM user WHERE userid = ?';
+  
+  connection.query(getUserImageQuery, [userid], (err, result) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Error retrieving user image URL' });
+    }
+
+    // 결과에서 이미지 URL 가져오기
+    if (result.length === 0 || !result[0].image_url) {
+      const defaultImageUrl = '/default-profile-image.jpg';
+      return res.status(200).json({ imageUrl: defaultImageUrl });
+    }
+
+    const imageUrl = result[0].image_url;
+
+    res.status(200).json({ imageUrl });
+  });
+};
+
+// 카드뉴스 불러오기 컨트롤런
+exports.getCardNews = (req, res) => {
+  const getCardNewsQuery = 'SELECT * FROM cardNews ORDER BY createDate DESC LIMIT 1';
+
+  connection.query(getCardNewsQuery, (cardNewsErr, cardNewsResult) => {
+    if (cardNewsErr) {
+      console.error(cardNewsErr);
+      return res.status(500).json({ error: '카드 뉴스를 가져오는 중 오류가 발생했습니다.' });
+    }
+
+    if (cardNewsResult.length === 0) {
+      return res.status(404).json({ error: '카드 뉴스를 찾을 수 없습니다.' });
+    }
+
+    const cardNews = cardNewsResult[0];
+
+    getUserInfo(cardNews.userid)
+      .then(userInfo => {
+        const response = {
+          cardNews,
+          userInfo,
+        };
+        res.status(200).json(response);
+      })
+      .catch(error => {
+        console.error(error);
+        res.status(500).json({ error: '사용자 정보를 가져오는 중 오류가 발생했습니다.' });
+      });
+  });
+};
+
+// 도우미 함수
+function getUserInfo(userid) {
+  return new Promise((resolve, reject) => {
+    const getUserInfoQuery = 'SELECT * FROM user WHERE userid = ?';
+
+    connection.query(getUserInfoQuery, [userid], (userErr, userResult) => {
+      if (userErr) {
+        reject(userErr);
+      }
+
+      if (userResult.length === 0) {
+        reject('사용자를 찾을 수 없습니다.');
+      }
+
+      const userInfo = {
+        nickname: userResult[0].name,
+        profileImage: userResult[0].image_url,
+      };
+
+      resolve(userInfo);
+    });
+  });
+}
 
 
 
