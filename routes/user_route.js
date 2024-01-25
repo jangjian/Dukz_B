@@ -33,4 +33,10 @@ router.get("/getUrl",userController.getUrl);
 // 이름 불러오기 라우트 
 router.post("/getName",userController.getName);
 
+// 일지 저장 라우트 
+router.post("/saveDiary",userController.saveDiary);
+
+// 일지의 장르 정보 저장 컨트롤러
+router.post("/saveDiaryGenre",userController.saveDiaryGenre);
+
 module.exports = router;
