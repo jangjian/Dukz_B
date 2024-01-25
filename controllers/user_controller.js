@@ -415,7 +415,6 @@ exports.saveCardNews = (req, res) => {
   });
 };
 
-
 // 사용자의 선호하는 장르 기반으로 추천 일지 가져오기
 exports.getRecommendedDiaries = (req, res) => {
   const { userid } = req.body;
@@ -584,6 +583,39 @@ exports.changeUserId = (req, res) => {
       }
     });
     res.status(200).json({ message: '사용자 ID가 성공적으로 변경되었습니다.' });
+  });
+};
+
+// pw 변경 컨트롤러
+exports.changeUserPw = (req, res) => {
+  const { userid, pw } = req.body;
+
+  const updateUserIdSql = 'UPDATE user SET pw = ? WHERE userid = ?';
+  connection.query(updateUserIdSql, [pw, userid], (err, updateResult) => {
+    if (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error updating user ID' });
+      return;
+    }
+    res.status(200).json({ message: '사용자 ID가 성공적으로 변경되었습니다.' });
+  });
+};
+
+// 비밀번호 테스트 컨트롤러
+exports.passwordTest = (req, res) => {
+  const { userid, pw } = req.body;
+    const sql = 'SELECT * FROM user WHERE userid = ? AND pw = ?';
+    connection.query(sql, [userid, pw], (err, result) => {
+      if (err) {
+        console.error(err);
+        res.status(500).json({ error: '오류가 발생했습니다.' });
+        return;
+      }
+      if (result.length === 0) {
+        res.status(401).json({ error: '잘못된 자격 증명' });
+        return;
+      }
+      res.status(200).json({ message: 'This is the correct password' });
   });
 };
 

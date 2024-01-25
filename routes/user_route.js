@@ -48,4 +48,10 @@ router.get("/getCardNews", userController.getCardNews);
 // 아이디 변경 컨트롤러
 router.post("/changeUserId", userController.changeUserId);
 
+// 비밀번호 변경 컨트롤러
+router.post("/changeUserPw", userController.changeUserPw);
+
+// 비밀번호 테스트 컨트롤러
+router.post("/passwordTest", userController.passwordTest);
+
 module.exports = router;
