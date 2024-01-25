@@ -560,6 +560,7 @@ function getHashtagsForCardNews(cardNewsId) {
       const hashtags = hashtagsResult.map(tag => tag.hashtag);
 
       resolve(hashtags);
+      console.log(hashtags);
     });
   });
 }
