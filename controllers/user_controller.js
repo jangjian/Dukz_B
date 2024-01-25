@@ -398,7 +398,7 @@ exports.saveCardNews = (req, res) => {
     }
 
     // 2. 카드뉴스 저장
-    const saveCardNewsQuery = 'INSERT INTO cardNews (title, place, open_time, close_time, price, image_url, createDate, userid) VALUES (?, ?, ?, ?,?, ?, ?, ?)';
+    const saveCardNewsQuery = 'INSERT INTO cardNews (title, place, open_time, close_time, price, image_url, createDate, userid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
     const cardNewsValues = [title, place, open_time, close_time, price, image_url, createDate, userid];
 
     connection.query(saveCardNewsQuery, cardNewsValues, (cardNewsErr, cardNewsResult) => {
@@ -496,19 +496,25 @@ exports.getCardNews = (req, res) => {
 
     getUserInfo(cardNews.userid)
       .then(userInfo => {
-        const response = {
-          cardNews,
-          userInfo,
-        };
-        res.status(200).json(response);
+        return getHashtagsForCardNews(cardNews.cardNewsId)
+          .then((hashtags) => {
+            const response = {
+              cardNews,
+              userInfo,
+              hashtags,
+            };
+            res.status(200).json(response);
+          })
+          .catch((error) => {
+            console.error("Error fetching hashtags:", error);
+            res.status(500).json({ error: '사용자 정보 및 해시태그를 가져오는 중 오류가 발생했습니다.' });
+          });
       })
       .catch(error => {
         console.error(error);
         res.status(500).json({ error: '사용자 정보를 가져오는 중 오류가 발생했습니다.' });
       });
-  });
-
-  
+    });
 };
 
 // 도우미 함수
@@ -541,22 +547,46 @@ function getHashtagsForCardNews(cardNewsId) {
     const getHashtagsQuery = `
       SELECT tag.hashtag
       FROM cardNewsHashtags
-      JOIN hashtag ON cardNewsHashtags.tagId = hashtag.tagid
+      JOIN tag ON cardNewsHashtags.hashtagId = tag.tagid
       WHERE cardNewsHashtags.cardNewsId = ?;
     `;
 
     connection.query(getHashtagsQuery, [cardNewsId], (hashtagsErr, hashtagsResult) => {
       if (hashtagsErr) {
         reject(hashtagsErr);
+        return;
       }
 
       // 결과에서 해시태그 가져오기
-      const hashtags = hashtagsResult.map(tag => tag.tag_name);
+      const hashtags = hashtagsResult.map(tag => tag.hashtag);
 
       resolve(hashtags);
     });
   });
 }
+
+// ID 변경 컨트롤러
+exports.changeUserId = (req, res) => {
+  const { userid, id } = req.body;
+
+  const updateUserIdSql = 'UPDATE user SET userid = ? WHERE userid = ?';
+  connection.query(updateUserIdSql, [id, userid], (err, updateResult) => {
+    if (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error updating user ID' });
+      return;
+    }
+    const updateCardNewsUserIdSql = 'UPDATE cardnews SET userid = ? WHERE userid = ?';
+    connection.query(updateCardNewsUserIdSql, [id, userid], (err, result) => {
+      if (err) {
+        console.error(err);
+      } else {
+      }
+    });
+    res.status(200).json({ message: '사용자 ID가 성공적으로 변경되었습니다.' });
+  });
+};
+
 
 
 
