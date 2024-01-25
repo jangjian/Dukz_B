@@ -40,7 +40,7 @@ router.post("/saveDiary",userController.saveDiary);
 router.post("/saveDiaryGenre",userController.saveDiaryGenre);
 
 // 카드 뉴스 저장 컨트롤러
-router.get("/saveCardNews",userController.saveCardNews);
+router.post("/saveCardNews",userController.saveCardNews);
 
 // 카드 뉴스 불러오기 컨트롤러
 router.get("/getCardNews",userController.getCardNews);
