@@ -398,7 +398,7 @@ exports.saveCardNews = (req, res) => {
     }
 
     // 2. 카드뉴스 저장
-    const saveCardNewsQuery = 'INSERT INTO cardNews (title, placse, open_time, close_time, price, image_url, createDate, userid) VALUES (?, ?, ?, ?,?, ?, ?, ?)';
+    const saveCardNewsQuery = 'INSERT INTO cardNews (title, place, open_time, close_time, price, image_url, createDate, userid) VALUES (?, ?, ?, ?,?, ?, ?, ?)';
     const cardNewsValues = [title, place, open_time, close_time, price, image_url, createDate, userid];
 
     connection.query(saveCardNewsQuery, cardNewsValues, (cardNewsErr, cardNewsResult) => {
