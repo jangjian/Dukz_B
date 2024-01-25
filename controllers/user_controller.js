@@ -2,7 +2,7 @@ const mysql = require('mysql2');
 const randomstring = require('randomstring');
 const nodemailer = require('nodemailer');
 const connection = mysql.createConnection({
-  host: '127.0.0.1',
+  host: 'localhost',
   user: 'root',
   password: '1011',
   database: 'dukz_db'
@@ -380,6 +380,42 @@ exports.saveDiaryGenre = (req, res) => {
   });
 };
 
+// 카드뉴스 저장 컨트롤러
+exports.saveCardNews = (req, res) => {
+  const { title, plcae, open_time, close_time, price, image_url, userid } = req.body;
+  const createDate = new Date();
+
+  // 1. 사용자 정보 조회
+  const getUserInfoQuery = 'SELECT * FROM user WHERE userid = ?';
+  connection.query(getUserInfoQuery, [userid], (userErr, userResult) => {
+    if (userErr) {
+      console.error(userErr);
+      return res.status(500).json({ error: 'Error retrieving user information' });
+    }
+
+    if (userResult.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // 2. 카드뉴스 저장
+    const saveCardNewsQuery = 'INSERT INTO cardNews (title, plcae, open_time, close_time, price, image_url, createDate, userid) VALUES (?, ?, ?, ?)';
+    const cardNewsValues = [title, content, createDate, userid];
+
+    connection.query(saveCardNewsQuery, cardNewsValues, (cardNewsErr, cardNewsResult) => {
+      if (cardNewsErr) {
+        console.error(cardNewsErr);
+        return res.status(500).json({ error: 'Error saving card news' });
+      }
+
+      const cardNewsId = cardNewsResult.insertId;
+
+      // 3. 클라이언트에게 전달
+      res.status(200).json({ message: 'Card news saved successfully', cardNewsId });
+    });
+  });
+};
+
+
 // 사용자의 선호하는 장르 기반으로 추천 일지 가져오기
 exports.getRecommendedDiaries = (req, res) => {
   const { userid } = req.body;
@@ -471,6 +507,8 @@ exports.getCardNews = (req, res) => {
         res.status(500).json({ error: '사용자 정보를 가져오는 중 오류가 발생했습니다.' });
       });
   });
+
+  
 };
 
 // 도우미 함수
@@ -493,6 +531,29 @@ function getUserInfo(userid) {
       };
 
       resolve(userInfo);
+    });
+  });
+}
+
+// 도우미 함수: 카드뉴스에 연결된 해시태그 불러오기
+function getHashtagsForCardNews(cardNewsId) {
+  return new Promise((resolve, reject) => {
+    const getHashtagsQuery = `
+      SELECT tag.hashtag
+      FROM cardNewsHashtags
+      JOIN hashtag ON cardNewsHashtags.tagId = hashtag.tagid
+      WHERE cardNewsHashtags.cardNewsId = ?;
+    `;
+
+    connection.query(getHashtagsQuery, [cardNewsId], (hashtagsErr, hashtagsResult) => {
+      if (hashtagsErr) {
+        reject(hashtagsErr);
+      }
+
+      // 결과에서 해시태그 가져오기
+      const hashtags = hashtagsResult.map(tag => tag.tag_name);
+
+      resolve(hashtags);
     });
   });
 }

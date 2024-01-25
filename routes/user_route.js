@@ -39,6 +39,9 @@ router.post("/saveDiary",userController.saveDiary);
 // 일지의 장르 정보 저장 컨트롤러
 router.post("/saveDiaryGenre",userController.saveDiaryGenre);
 
+// 카드 뉴스 저장 컨트롤러
+router.get("/saveCardNews",userController.saveCardNews);
+
 // 카드 뉴스 불러오기 컨트롤러
 router.get("/getCardNews",userController.getCardNews);
 
