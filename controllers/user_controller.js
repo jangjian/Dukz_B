@@ -528,7 +528,6 @@ exports.getCardNews = (req, res) => {
   });
 };
 
-
 // 도우미 함수
 function getUserInfo(userid) {
   return new Promise((resolve, reject) => {
@@ -681,6 +680,20 @@ exports.changeUserImage = (req, res) => {
   });
 };
 
+// 닉네임 변경 컨트롤러
+exports.changeUserName = (req, res) => {
+  const { userid, name } = req.body;
+
+  const updateUserIdSql = 'UPDATE user SET name = ? WHERE userid = ?';
+  connection.query(updateUserIdSql, [name, userid], (err, updateResult) => {
+    if (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error updating user ID' });
+      return;
+    }
+    res.status(200).json({ message: '사용자 닉네임이 성공적으로 변경되었습니다.' });
+  });
+};
 
 
 
