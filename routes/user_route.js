@@ -54,4 +54,7 @@ router.post("/changeUserPw", userController.changeUserPw);
 // 비밀번호 테스트 컨트롤러
 router.post("/passwordTest", userController.passwordTest);
 
+// 사용자 이미지 변경 컨트롤러
+router.post("/changeUserImage", userController.changeUserImage);
+
 module.exports = router;

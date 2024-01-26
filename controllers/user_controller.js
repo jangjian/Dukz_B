@@ -631,6 +631,55 @@ exports.passwordTest = (req, res) => {
   });
 };
 
+// 사용자 이미지 변경 컨트롤러
+exports.changeUserImage = (req, res) => {
+  // 이미지 업로드 처리
+  upload(req, res, function (uploadErr) {
+      if (uploadErr instanceof multer.MulterError) {
+          return res.status(500).json({ success: false, message: '이미지 업로드 실패' });
+      } else if (uploadErr) {
+          console.error('Upload Error:', uploadErr);
+          return res.status(500).json({ success: false, message: '서버 오류 발생', error: uploadErr.message });
+      }
+
+      const newImageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+
+      // 기존 이미지를 가져오기 위한 쿼리
+      const { userid } = req.body;
+      const getOldImageUrlQuery = 'SELECT image_url FROM user WHERE userid = ?';
+      connection.query(getOldImageUrlQuery, [userid], (err, result) => {
+          if (err) {
+              console.error(err);
+              res.status(500).json({ error: 'Error retrieving old image URL' });
+              return;
+          }
+
+          const oldImageUrl = result[0].image_url;
+
+          const updateUserInfoQuery = 'UPDATE user SET image_url = ? WHERE userid = ?';
+          connection.query(updateUserInfoQuery, [newImageUrl, userid], (updateErr, updateResult) => {
+              if (updateErr) {
+                  console.error(updateErr);
+                  res.status(500).json({ error: 'Error updating user image' });
+                  return;
+              }
+
+              // 이전 이미지 삭제
+              if (oldImageUrl && oldImageUrl !== newImageUrl) {
+                  const oldImagePath = path.join(__dirname, oldImageUrl);
+                  fs.unlink(oldImagePath, (unlinkErr) => {
+                      if (unlinkErr) {
+                          console.error('Error deleting old image:', unlinkErr);
+                      }
+                  });
+              }
+
+              res.status(200).json({ success: true, message: 'User image updated successfully', newImageUrl });
+          });
+      });
+  });
+};
+
 
 
 
