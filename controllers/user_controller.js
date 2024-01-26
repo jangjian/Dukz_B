@@ -478,7 +478,7 @@ exports.getUrl = (req, res) => {
 };
 
 // 카드뉴스 불러오기 컨트롤러
-exports.getAllCardNews = (req, res) => {
+exports.getCardNews = (req, res) => {
   const getCardNewsQuery = 'SELECT * FROM cardNews ORDER BY createDate DESC';
 
   connection.query(getCardNewsQuery, (cardNewsErr, cardNewsResult) => {

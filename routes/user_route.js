@@ -43,7 +43,7 @@ router.post("/saveDiaryGenre",userController.saveDiaryGenre);
 router.post("/saveCardNews",userController.saveCardNews);
 
 // 카드 뉴스 불러오기 컨트롤러
-router.get("/getAllCardNews", userController.getAllCardNews);
+router.get("/getCardNews", userController.getCardNews);
 
 // 아이디 변경 컨트롤러
 router.post("/changeUserId", userController.changeUserId);
