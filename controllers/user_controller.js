@@ -479,7 +479,7 @@ exports.getUrl = (req, res) => {
 
 // 카드뉴스 불러오기 컨트롤런
 exports.getCardNews = (req, res) => {
-  const getCardNewsQuery = 'SELECT * FROM cardNews ORDER BY createDate DESC LIMIT 1';
+  const getCardNewsQuery = 'SELECT * FROM cardNews ORDER BY createDate DESC';
 
   connection.query(getCardNewsQuery, (cardNewsErr, cardNewsResult) => {
     if (cardNewsErr) {
@@ -560,7 +560,6 @@ function getHashtagsForCardNews(cardNewsId) {
       const hashtags = hashtagsResult.map(tag => tag.hashtag);
 
       resolve(hashtags);
-      console.log(hashtags);
     });
   });
 }
