@@ -10,6 +10,7 @@ const connection = mysql.createConnection({
 
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 
 // 이미지 저장 디렉토리 설정
 const storage = multer.diskStorage({
