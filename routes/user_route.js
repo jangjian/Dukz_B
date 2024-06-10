@@ -28,7 +28,7 @@ router.post("/checkAuthCode", userController.checkAuthCode);
 router.post("/login", userController.login);
 
 // 이미지 불러오기 라우트 
-router.get("/getUrl",userController.getUrl);
+router.post("/getUrl",userController.getUrl);
 
 // 이름 불러오기 라우트 
 router.post("/getName",userController.getName);
@@ -38,5 +38,26 @@ router.post("/saveDiary",userController.saveDiary);
 
 // 일지의 장르 정보 저장 컨트롤러
 router.post("/saveDiaryGenre",userController.saveDiaryGenre);
+
+// 카드 뉴스 저장 컨트롤러
+router.post("/saveCardNews",userController.saveCardNews);
+
+// 카드 뉴스 불러오기 컨트롤러
+router.get("/getCardNews", userController.getCardNews);
+
+// 아이디 변경 컨트롤러
+router.post("/changeUserId", userController.changeUserId);
+
+// 비밀번호 변경 컨트롤러
+router.post("/changeUserPw", userController.changeUserPw);
+
+// 비밀번호 테스트 컨트롤러
+router.post("/passwordTest", userController.passwordTest);
+
+// 사용자 이미지 변경 컨트롤러
+router.post("/changeUserImage", userController.changeUserImage);
+
+// 사용자 닉네임 변경 컨트롤러
+router.post("/changeUserName", userController.changeUserName);
 
 module.exports = router;

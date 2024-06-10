@@ -10,6 +10,7 @@ const connection = mysql.createConnection({
 
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 
 // 이미지 저장 디렉토리 설정
 const storage = multer.diskStorage({
@@ -295,25 +296,6 @@ exports.login = (req, res) => {
   });
 };
 
-// 이미지 경로 값 불러오기
-exports.getUrl = (req, res) => {
-  const { userid } = req.body;
-
-  const getUserRulesSql = 'SELECT image_url FROM user WHERE userid = ?';
-  connection.query(getUserRulesSql, [userid], (err, result) => {
-    if (err) {
-      console.error(err);
-      res.status(500).json({ error: '이미지를 불러오던 중 오류가 발생했습니다.' });
-      return;
-    }
-    
-    res.status(200).json({
-      image_url: image_url,
-      
-    });
-  });
-};
-
 // 사용자 정보 불러오기
 exports.getName = (req, res) => {
   const { userid } = req.body;
@@ -399,6 +381,41 @@ exports.saveDiaryGenre = (req, res) => {
   });
 };
 
+// 카드뉴스 저장 컨트롤러
+exports.saveCardNews = (req, res) => {
+  const { title, place, open_time, close_time, price, image_url, userid } = req.body;
+  const createDate = new Date();
+
+  // 1. 사용자 정보 조회
+  const getUserInfoQuery = 'SELECT * FROM user WHERE userid = ?';
+  connection.query(getUserInfoQuery, [userid], (userErr, userResult) => {
+    if (userErr) {
+      console.error(userErr);
+      return res.status(500).json({ error: 'Error retrieving user information' });
+    }
+
+    if (userResult.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // 2. 카드뉴스 저장
+    const saveCardNewsQuery = 'INSERT INTO cardNews (title, place, open_time, close_time, price, image_url, createDate, userid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+    const cardNewsValues = [title, place, open_time, close_time, price, image_url, createDate, userid];
+
+    connection.query(saveCardNewsQuery, cardNewsValues, (cardNewsErr, cardNewsResult) => {
+      if (cardNewsErr) {
+        console.error(cardNewsErr);
+        return res.status(500).json({ error: 'Error saving card news' });
+      }
+
+      const cardNewsId = cardNewsResult.insertId;
+
+      // 3. 클라이언트에게 전달
+      res.status(200).json({ message: 'Card news saved successfully', cardNewsId });
+    });
+  });
+};
+
 // 사용자의 선호하는 장르 기반으로 추천 일지 가져오기
 exports.getRecommendedDiaries = (req, res) => {
   const { userid } = req.body;
@@ -437,6 +454,246 @@ exports.getRecommendedDiaries = (req, res) => {
   });
 };
 
+// 사용자 이미지 URL 불러오기 컨트롤러
+exports.getUrl = (req, res) => {
+  const { userid } = req.body;
+
+  const getUserImageQuery = 'SELECT image_url FROM user WHERE userid = ?';
+  
+  connection.query(getUserImageQuery, [userid], (err, result) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Error retrieving user image URL' });
+    }
+
+    // 결과에서 이미지 URL 가져오기
+    if (result.length === 0 || !result[0].image_url) {
+      const defaultImageUrl = '/default-profile-image.jpg';
+      return res.status(200).json({ imageUrl: defaultImageUrl });
+    }
+
+    const imageUrl = result[0].image_url;
+
+    res.status(200).json({ imageUrl });
+  });
+};
+
+// 카드뉴스 불러오기 컨트롤러
+exports.getCardNews = (req, res) => {
+  const getCardNewsQuery = 'SELECT * FROM cardNews ORDER BY createDate DESC';
+
+  connection.query(getCardNewsQuery, (cardNewsErr, cardNewsResult) => {
+    if (cardNewsErr) {
+      console.error(cardNewsErr);
+      return res.status(500).json({ error: '카드 뉴스를 가져오는 중 오류가 발생했습니다.' });
+    }
+
+    if (cardNewsResult.length === 0) {
+      return res.status(404).json({ error: '카드 뉴스를 찾을 수 없습니다.' });
+    }
+
+    // 모든 카드뉴스를 가져올 때는 배열에 담아서 전송
+    const allCardNewsPromises = cardNewsResult.map(cardNews => {
+      return new Promise((resolve, reject) => {
+        getUserInfo(cardNews.userid)
+          .then(userInfo => {
+            getHashtagsForCardNews(cardNews.cardNewsId)
+              .then((hashtags) => {
+                const cardNewsData = {
+                  cardNews,
+                  userInfo,
+                  hashtags,
+                };
+                resolve(cardNewsData);
+              })
+              .catch((error) => {
+                console.error("Error fetching hashtags:", error);
+                reject(error);
+              });
+          })
+          .catch(error => {
+            console.error(error);
+            reject(error);
+          });
+      });
+    });
+
+    Promise.all(allCardNewsPromises)
+      .then(allCardNews => {
+        res.status(200).json(allCardNews);
+      })
+      .catch(error => {
+        res.status(500).json({ error: '사용자 정보 및 해시태그를 가져오는 중 오류가 발생했습니다.' });
+      });
+  });
+};
+
+// 도우미 함수
+function getUserInfo(userid) {
+  return new Promise((resolve, reject) => {
+    const getUserInfoQuery = 'SELECT * FROM user WHERE userid = ?';
+
+    connection.query(getUserInfoQuery, [userid], (userErr, userResult) => {
+      if (userErr) {
+        reject(userErr);
+      }
+
+      if (userResult.length === 0) {
+        reject('사용자를 찾을 수 없습니다.');
+      }
+
+      const userInfo = {
+        nickname: userResult[0].name,
+        profileImage: userResult[0].image_url,
+      };
+
+      resolve(userInfo);
+    });
+  });
+}
+
+// 도우미 함수: 카드뉴스에 연결된 해시태그 불러오기
+function getHashtagsForCardNews(cardNewsId) {
+  return new Promise((resolve, reject) => {
+    const getHashtagsQuery = `
+      SELECT tag.hashtag
+      FROM cardNewsHashtags
+      JOIN tag ON cardNewsHashtags.hashtagId = tag.tagid
+      WHERE cardNewsHashtags.cardNewsId = ?;
+    `;
+
+    connection.query(getHashtagsQuery, [cardNewsId], (hashtagsErr, hashtagsResult) => {
+      if (hashtagsErr) {
+        reject(hashtagsErr);
+        return;
+      }
+
+      // 결과에서 해시태그 가져오기
+      const hashtags = hashtagsResult.map(tag => tag.hashtag);
+
+      resolve(hashtags);
+    });
+  });
+}
+
+// ID 변경 컨트롤러
+exports.changeUserId = (req, res) => {
+  const { userid, id } = req.body;
+
+  const updateUserIdSql = 'UPDATE user SET userid = ? WHERE userid = ?';
+  connection.query(updateUserIdSql, [id, userid], (err, updateResult) => {
+    if (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error updating user ID' });
+      return;
+    }
+    const updateCardNewsUserIdSql = 'UPDATE cardnews SET userid = ? WHERE userid = ?';
+    connection.query(updateCardNewsUserIdSql, [id, userid], (err, result) => {
+      if (err) {
+        console.error(err);
+      } else {
+      }
+    });
+    res.status(200).json({ message: '사용자 ID가 성공적으로 변경되었습니다.' });
+  });
+};
+
+// pw 변경 컨트롤러
+exports.changeUserPw = (req, res) => {
+  const { userid, pw } = req.body;
+
+  const updateUserIdSql = 'UPDATE user SET pw = ? WHERE userid = ?';
+  connection.query(updateUserIdSql, [pw, userid], (err, updateResult) => {
+    if (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error updating user ID' });
+      return;
+    }
+    res.status(200).json({ message: '사용자 ID가 성공적으로 변경되었습니다.' });
+  });
+};
+
+// 비밀번호 테스트 컨트롤러
+exports.passwordTest = (req, res) => {
+  const { userid, pw } = req.body;
+    const sql = 'SELECT * FROM user WHERE userid = ? AND pw = ?';
+    connection.query(sql, [userid, pw], (err, result) => {
+      if (err) {
+        console.error(err);
+        res.status(500).json({ error: '오류가 발생했습니다.' });
+        return;
+      }
+      if (result.length === 0) {
+        res.status(401).json({ error: '잘못된 자격 증명' });
+        return;
+      }
+      res.status(200).json({ message: 'This is the correct password' });
+  });
+};
+
+// 사용자 이미지 변경 컨트롤러
+exports.changeUserImage = (req, res) => {
+  // 이미지 업로드 처리
+  upload(req, res, function (uploadErr) {
+      if (uploadErr instanceof multer.MulterError) {
+          return res.status(500).json({ success: false, message: '이미지 업로드 실패' });
+      } else if (uploadErr) {
+          console.error('Upload Error:', uploadErr);
+          return res.status(500).json({ success: false, message: '서버 오류 발생', error: uploadErr.message });
+      }
+
+      const newImageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+
+      // 기존 이미지를 가져오기 위한 쿼리
+      const { userid } = req.body;
+      const getOldImageUrlQuery = 'SELECT image_url FROM user WHERE userid = ?';
+      connection.query(getOldImageUrlQuery, [userid], (err, result) => {
+          if (err) {
+              console.error(err);
+              res.status(500).json({ error: 'Error retrieving old image URL' });
+              return;
+          }
+
+          const oldImageUrl = result[0].image_url;
+
+          const updateUserInfoQuery = 'UPDATE user SET image_url = ? WHERE userid = ?';
+          connection.query(updateUserInfoQuery, [newImageUrl, userid], (updateErr, updateResult) => {
+              if (updateErr) {
+                  console.error(updateErr);
+                  res.status(500).json({ error: 'Error updating user image' });
+                  return;
+              }
+
+              // 이전 이미지 삭제
+              if (oldImageUrl && oldImageUrl !== newImageUrl) {
+                  const oldImagePath = path.join(__dirname, oldImageUrl);
+                  fs.unlink(oldImagePath, (unlinkErr) => {
+                      if (unlinkErr) {
+                          console.error('Error deleting old image:', unlinkErr);
+                      }
+                  });
+              }
+
+              res.status(200).json({ success: true, message: 'User image updated successfully', newImageUrl });
+          });
+      });
+  });
+};
+
+// 닉네임 변경 컨트롤러
+exports.changeUserName = (req, res) => {
+  const { userid, name } = req.body;
+
+  const updateUserIdSql = 'UPDATE user SET name = ? WHERE userid = ?';
+  connection.query(updateUserIdSql, [name, userid], (err, updateResult) => {
+    if (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error updating user ID' });
+      return;
+    }
+    res.status(200).json({ message: '사용자 닉네임이 성공적으로 변경되었습니다.' });
+  });
+};
 
 
 
