@@ -3,7 +3,7 @@ const randomstring = require('randomstring');
 const nodemailer = require('nodemailer');
 const connection = mysql.createConnection({
   host: 'localhost',
-  user: 'root',
+  user: 'dukz',
   password: '1011',
   database: 'dukz_db'
 });
@@ -25,7 +25,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage }).single('profile_image');
 
-// 회원가입 컨트롤러(이메일)
+// 회원가입 API(이메일)
 exports.signup = (req, res) => {
     const { email } = req.body;
   
@@ -43,7 +43,7 @@ exports.signup = (req, res) => {
     });
 };
 
-// 이메일 중복 확인 컨트롤러
+// 이메일 중복 확인 API
 exports.emailDuplicate = (req, res) => {
   const { email } = req.body;
   const checkDuplicateSql = 'SELECT COUNT(*) AS count FROM user WHERE email = ?';
@@ -57,7 +57,7 @@ exports.emailDuplicate = (req, res) => {
   });
 };
 
-// 회원가입 컨트롤러 2 (아이디)
+// 회원가입 API 2 (아이디)
 exports.signup2 = (req, res) => {
     const { email, userid } = req.body;
   
@@ -72,7 +72,7 @@ exports.signup2 = (req, res) => {
     });
 };
 
-// 아이디 중복 확인 컨트롤러
+// 아이디 중복 확인 API
 exports.checkDuplicate = (req, res) => {
   const { userid } = req.body;
   const checkDuplicateSql = 'SELECT COUNT(*) AS count FROM user WHERE userid = ?';
@@ -86,7 +86,7 @@ exports.checkDuplicate = (req, res) => {
   });
 };
 
-// 회원가입 컨트롤러 3 (비밀번호)
+// 회원가입 API 3 (비밀번호)
 exports.signup3 = (req,res) => {
   const {email, pw} = req.body;
   const sql = 'UPDATE user SET pw = ? WHERE email = ?';
@@ -100,7 +100,7 @@ exports.signup3 = (req,res) => {
   })
 };
 
-// 회원가입 컨트롤러 4 (닉네임)
+// 회원가입 API 4 (닉네임)
 exports.signup4 = (req,res) => {
   const {email, name} = req.body;
   const sql = 'UPDATE user SET name = ? WHERE email = ?';
@@ -114,7 +114,7 @@ exports.signup4 = (req,res) => {
   })
 };
 
-// 회원가입 및 이미지 업로드 (컨트롤러)
+// 회원가입 및 이미지 업로드 (API)
 exports.signup5 = (req, res) => {
     // 이미지 업로드 처리
     upload(req, res, function (uploadErr) {
@@ -140,7 +140,7 @@ exports.signup5 = (req, res) => {
     });
 };
 
-// 회원가입 컨트롤러 6 (생년월일)
+// 회원가입 API 6 (생년월일)
 exports.signup6 = (req,res) => {
   const {email, birth} = req.body;
   const sql = 'UPDATE user SET birth = ? WHERE email = ?';
@@ -154,7 +154,7 @@ exports.signup6 = (req,res) => {
   })
 };
 
-// 사용자의 장르 선호를 저장하는 컨트롤러
+// 사용자의 장르 선호를 저장하는 API
 exports.signup7 = (req, res) => {
   const { email, genres } = req.body;
 
@@ -185,7 +185,7 @@ exports.signup7 = (req, res) => {
   });
 };
 
-// 이메일 인증 코드 요청 컨트롤러
+// 이메일 인증 코드 요청 API
 exports.certificate = async (req, res) => {
     const { email } = req.body;
     // 기존에 해당 이메일로 생성된 인증 코드가 있다면 삭제
@@ -264,7 +264,7 @@ exports.checkAuthCode = (req, res) => {
     });
 };
 
-// 로그인 컨트롤러
+// 로그인 API
 exports.login = (req, res) => {
   const { userid, pw } = req.body;
     const token = randomstring.generate(40);
@@ -316,7 +316,7 @@ exports.getName = (req, res) => {
   });
 };
 
-// 일지를 저장하는 컨트롤러
+// 일지를 저장하는 API
 exports.saveDiary = (req, res) => {
   const { title, content, subtitle, userid, regionId } = req.body;
   const createDate = new Date();
@@ -363,7 +363,7 @@ exports.saveDiary = (req, res) => {
   });
 };
 
-// 일지의 장르 정보 저장 컨트롤러
+// 일지의 장르 정보 저장 API
 exports.saveDiaryGenre = (req, res) => {
   const { diaryId, genreId } = req.body;
 
@@ -381,7 +381,7 @@ exports.saveDiaryGenre = (req, res) => {
   });
 };
 
-// 카드뉴스 저장 컨트롤러
+// 카드뉴스 저장 API
 exports.saveCardNews = (req, res) => {
   const { title, place, open_time, close_time, price, image_url, userid } = req.body;
   const createDate = new Date();
@@ -454,7 +454,7 @@ exports.getRecommendedDiaries = (req, res) => {
   });
 };
 
-// 사용자 이미지 URL 불러오기 컨트롤러
+// 사용자 이미지 URL 불러오기 API
 exports.getUrl = (req, res) => {
   const { userid } = req.body;
 
@@ -478,7 +478,7 @@ exports.getUrl = (req, res) => {
   });
 };
 
-// 카드뉴스 불러오기 컨트롤러
+// 카드뉴스 불러오기 API
 exports.getCardNews = (req, res) => {
   const getCardNewsQuery = 'SELECT * FROM cardNews ORDER BY createDate DESC';
 
@@ -576,7 +576,7 @@ function getHashtagsForCardNews(cardNewsId) {
   });
 }
 
-// ID 변경 컨트롤러
+// ID 변경 API
 exports.changeUserId = (req, res) => {
   const { userid, id } = req.body;
 
@@ -587,7 +587,7 @@ exports.changeUserId = (req, res) => {
       res.status(500).json({ error: 'Error updating user ID' });
       return;
     }
-    const updateCardNewsUserIdSql = 'UPDATE cardnews SET userid = ? WHERE userid = ?';
+    const updateCardNewsUserIdSql = 'UPDATE cardNews SET userid = ? WHERE userid = ?';
     connection.query(updateCardNewsUserIdSql, [id, userid], (err, result) => {
       if (err) {
         console.error(err);
@@ -598,7 +598,7 @@ exports.changeUserId = (req, res) => {
   });
 };
 
-// pw 변경 컨트롤러
+// pw 변경 API
 exports.changeUserPw = (req, res) => {
   const { userid, pw } = req.body;
 
@@ -613,7 +613,7 @@ exports.changeUserPw = (req, res) => {
   });
 };
 
-// 비밀번호 테스트 컨트롤러
+// 비밀번호 테스트 API
 exports.passwordTest = (req, res) => {
   const { userid, pw } = req.body;
     const sql = 'SELECT * FROM user WHERE userid = ? AND pw = ?';
@@ -631,7 +631,7 @@ exports.passwordTest = (req, res) => {
   });
 };
 
-// 사용자 이미지 변경 컨트롤러
+// 사용자 이미지 변경 API
 exports.changeUserImage = (req, res) => {
   // 이미지 업로드 처리
   upload(req, res, function (uploadErr) {
@@ -680,7 +680,7 @@ exports.changeUserImage = (req, res) => {
   });
 };
 
-// 닉네임 변경 컨트롤러
+// 닉네임 변경 API
 exports.changeUserName = (req, res) => {
   const { userid, name } = req.body;
 
