@@ -393,7 +393,7 @@ exports.saveDiary = (req, res) => {
   const saveContent = (content, callback) => {
     const { contentType, contentText, align, imageSrc, cardNewsId, subtitle } = content;
 
-    const saveContentQuery = 'INSERT INTO diaryContent (diaryId, contentType, content, align, imageSrc, cardNewsId, subtitle) VALUES (?, ?, ?, ?, ?, ?)';
+    const saveContentQuery = 'INSERT INTO diaryContent (diaryId, contentType, content, align, imageSrc, cardNewsId, subtitle) VALUES (?, ?, ?, ?, ?, ?, ?)';
     const contentValues = [diaryId, contentType, contentText, align, imageSrc, cardNewsId, subtitle];
 
     connection.query(saveContentQuery, contentValues, callback);
