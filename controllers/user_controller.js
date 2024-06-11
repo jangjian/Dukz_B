@@ -401,7 +401,7 @@ exports.saveDiary = (req, res) => {
     if (content.contentType === 'image') {
       // 이미지 업로드 처리
       const { imageSrc } = content;
-      const imagePath = `uploads/${imageSrc}`;
+      const imagePath = `/uploads/${imageSrc}`;
 
       fs.writeFile(imagePath, imageSrc, 'base64', (err) => {
         if (err) {
