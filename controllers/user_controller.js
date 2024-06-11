@@ -188,14 +188,12 @@ exports.signup7 = (req, res) => {
 // 이메일 인증 코드 요청 API
 exports.certificate = async (req, res) => {
     const { email } = req.body;
-    // 기존에 해당 이메일로 생성된 인증 코드가 있다면 삭제
     const deleteAuthCodeSql = 'DELETE FROM verification_codes WHERE email = ?';
     connection.query(deleteAuthCodeSql, [email], async (deleteErr, deleteResult) => {
       if (deleteErr) {
         console.error(deleteErr);
         return res.status(500).json({ error: '기존 인증 코드를 삭제하는 중 오류가 발생하였습니다.' });
       }
-      // 새로운 랜덤한 5자리 숫자 생성
       const verificationCode = Math.floor(10000 + Math.random() * 90000);
       const transporter = nodemailer.createTransport({
         service: "gmail",
@@ -368,10 +366,8 @@ exports.saveRegion = (req, res) => {
 exports.saveGenre = (req, res) => {
   const { genreId, diaryId } = req.body;
 
-  // 문자열로 받은 genreId를 배열로 변환
   const genreIds = Array.isArray(genreId) ? genreId : [genreId];
 
-  // 여러 장르를 저장하기 위해 배치를 사용
   const saveGenreQuery = 'INSERT INTO diarygenre (diaryId, genreId) VALUES ?';
   const genreValues = genreIds.map(genreId => [diaryId, genreId]);
 
@@ -384,7 +380,6 @@ exports.saveGenre = (req, res) => {
     res.status(200).json({ message: 'Genre information saved successfully' });
   });
 };
-
 
 // 일지 내용을 저장하는 API
 exports.saveDiary = (req, res) => {
@@ -403,24 +398,60 @@ exports.saveDiary = (req, res) => {
   const errors = [];
 
   contents.forEach(content => {
-    saveContent(content, (contentErr) => {
-      if (contentErr) {
-        errors.push(contentErr);
-      }
-      remaining -= 1;
-      if (remaining === 0) {
-        if (errors.length > 0) {
-          console.error(errors);
-          res.status(500).json({ error: 'Error saving diary content', details: errors });
+    if (content.contentType === 'image') {
+      // 이미지 업로드 처리
+      const { imageSrc } = content;
+      const imagePath = `uploads/${imageSrc}`;
+
+      fs.writeFile(imagePath, imageSrc, 'base64', (err) => {
+        if (err) {
+          errors.push(err);
+          remaining -= 1;
+          if (remaining === 0) {
+            if (errors.length > 0) {
+              console.error(errors);
+              res.status(500).json({ error: 'Error saving diary content', details: errors });
+            } else {
+              res.status(200).json({ message: 'Diary content saved successfully' });
+            }
+          }
         } else {
-          res.status(200).json({ message: 'Diary content saved successfully' });
+          // 이미지 업로드 성공 시, 이미지 경로를 content 객체에 업데이트
+          content.imageSrc = imagePath;
+          saveContent(content, (contentErr) => {
+            if (contentErr) {
+              errors.push(contentErr);
+            }
+            remaining -= 1;
+            if (remaining === 0) {
+              if (errors.length > 0) {
+                console.error(errors);
+                res.status(500).json({ error: 'Error saving diary content', details: errors });
+              } else {
+                res.status(200).json({ message: 'Diary content saved successfully' });
+              }
+            }
+          });
         }
-      }
-    });
+      });
+    } else {
+      saveContent(content, (contentErr) => {
+        if (contentErr) {
+          errors.push(contentErr);
+        }
+        remaining -= 1;
+        if (remaining === 0) {
+          if (errors.length > 0) {
+            console.error(errors);
+            res.status(500).json({ error: 'Error saving diary content', details: errors });
+          } else {
+            res.status(200).json({ message: 'Diary content saved successfully' });
+          }
+        }
+      });
+    }
   });
 };
-
-
 
 
 // 카드뉴스 저장 API
