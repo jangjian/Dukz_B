@@ -387,26 +387,26 @@ exports.saveGenre = (req, res) => {
 
 
 // 일지 내용을 저장하는 API
-exports.saveDiary = (req, res) => {
+exports.saveDiary = async (req, res) => {
   const { diaryId, contents } = req.body;
 
-  // contents 배열에서 각 내용을 하나씩 처리
-  contents.forEach(content => {
-    const { contentType, contentText, align, imageSrc, cardNewsId } = content;
+  try {
+    const saveContentPromises = contents.map(content => {
+      const { contentType, contentText, align, imageSrc, cardNewsId } = content;
 
-    // diaryContent 테이블에 내용 저장
-    const saveContentQuery = 'INSERT INTO diaryContent (diaryId, contentType, content, align, imageSrc, cardNewsId) VALUES (?, ?, ?, ?, ?, ?)';
-    const contentValues = [diaryId, contentType, contentText, align, imageSrc, cardNewsId];
+      const saveContentQuery = 'INSERT INTO diaryContent (diaryId, contentType, content, align, imageSrc, cardNewsId) VALUES (?, ?, ?, ?, ?, ?)';
+      const contentValues = [diaryId, contentType, contentText, align, imageSrc, cardNewsId];
 
-    connection.query(saveContentQuery, contentValues, (contentErr) => {
-      if (contentErr) {
-        console.error(contentErr);
-        return res.status(500).json({ error: 'Error saving diary content' });
-      }
+      return connection.query(saveContentQuery, contentValues);
     });
-  });
 
-  res.status(200).json({ message: 'Diary content saved successfully' });
+    await Promise.all(saveContentPromises);
+
+    res.status(200).json({ message: 'Diary content saved successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error saving diary content' });
+  }
 };
 
 
