@@ -368,9 +368,12 @@ exports.saveRegion = (req, res) => {
 exports.saveGenre = (req, res) => {
   const { genreId, diaryId } = req.body;
 
+  // 문자열로 받은 genreId를 배열로 변환
+  const genreIds = Array.isArray(genreId) ? genreId : [genreId];
+
   // 여러 장르를 저장하기 위해 배치를 사용
   const saveGenreQuery = 'INSERT INTO diarygenre (diaryId, genreId) VALUES ?';
-  const genreValues = genreId.map(genreId => [diaryId, genreId]);
+  const genreValues = genreIds.map(genreId => [diaryId, genreId]);
 
   connection.query(saveGenreQuery, [genreValues], (genreErr) => {
     if (genreErr) {
@@ -381,6 +384,7 @@ exports.saveGenre = (req, res) => {
     res.status(200).json({ message: 'Genre information saved successfully' });
   });
 };
+
 
 // 일지 내용을 저장하는 API
 exports.saveDiary = (req, res) => {
