@@ -387,27 +387,39 @@ exports.saveGenre = (req, res) => {
 
 
 // 일지 내용을 저장하는 API
-exports.saveDiary = async (req, res) => {
+exports.saveDiary = (req, res) => {
   const { diaryId, contents } = req.body;
 
-  try {
-    const saveContentPromises = contents.map(content => {
-      const { contentType, contentText, align, imageSrc, cardNewsId } = content;
+  const saveContent = (content, callback) => {
+    const { contentType, contentText, align, imageSrc, cardNewsId } = content;
 
-      const saveContentQuery = 'INSERT INTO diaryContent (diaryId, contentType, content, align, imageSrc, cardNewsId) VALUES (?, ?, ?, ?, ?, ?)';
-      const contentValues = [diaryId, contentType, contentText, align, imageSrc, cardNewsId];
+    const saveContentQuery = 'INSERT INTO diaryContent (diaryId, contentType, content, align, imageSrc, cardNewsId) VALUES (?, ?, ?, ?, ?, ?)';
+    const contentValues = [diaryId, contentType, contentText, align, imageSrc, cardNewsId];
 
-      return connection.query(saveContentQuery, contentValues);
+    connection.query(saveContentQuery, contentValues, callback);
+  };
+
+  let remaining = contents.length;
+  const errors = [];
+
+  contents.forEach(content => {
+    saveContent(content, (contentErr) => {
+      if (contentErr) {
+        errors.push(contentErr);
+      }
+      remaining -= 1;
+      if (remaining === 0) {
+        if (errors.length > 0) {
+          console.error(errors);
+          res.status(500).json({ error: 'Error saving diary content', details: errors });
+        } else {
+          res.status(200).json({ message: 'Diary content saved successfully' });
+        }
+      }
     });
-
-    await Promise.all(saveContentPromises);
-
-    res.status(200).json({ message: 'Diary content saved successfully' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error saving diary content' });
-  }
+  });
 };
+
 
 
 
