@@ -33,11 +33,14 @@ router.post("/getUrl",userController.getUrl);
 // 이름 불러오기 라우트 
 router.post("/getName",userController.getName);
 
-// 일지 저장 라우트 
-router.post("/saveDiary",userController.saveDiary);
+// 일지 지역 저장 라우트 1
+router.post("/saveRegion",userController.saveRegion);
 
-// 일지의 장르 정보 저장 API
-router.post("/saveDiaryGenre",userController.saveDiaryGenre);
+// 일지의 장르 정보 저장 라우트 2
+router.post("/saveGenre",userController.saveGenre);
+
+// 일지 저장 라우트 3
+router.post("/saveDiary",userController.saveDiary);
 
 // 카드 뉴스 저장 API
 router.post("/saveCardNews",userController.saveCardNews);

@@ -316,12 +316,11 @@ exports.getName = (req, res) => {
   });
 };
 
-// 일지를 저장하는 API
-exports.saveDiary = (req, res) => {
-  const { title, content, subtitle, userid, regionId } = req.body;
-  const createDate = new Date();
+// 지역을 저장하는 API
+exports.saveRegion = (req, res) => {
+  const { regionName, userid } = req.body;
 
-  // 1. 사용자 정보 조회
+  // 사용자 정보 조회
   const getUserIdQuery = 'SELECT id FROM user WHERE userid = ?';
   connection.query(getUserIdQuery, [userid], (userErr, userResult) => {
     if (userErr) {
@@ -335,51 +334,78 @@ exports.saveDiary = (req, res) => {
 
     const userId = userResult[0].id;
 
-    // 2. 일지 저장
-    const saveDiaryQuery = 'INSERT INTO diary (title, content, subtitle, createDate, regionId) VALUES (?, ?, ?, ?, ?)';
-    const diaryValues = [title, content, subtitle, createDate, regionId];
-
-    connection.query(saveDiaryQuery, diaryValues, (diaryErr, diaryResult) => {
-      if (diaryErr) {
-        console.error(diaryErr);
-        return res.status(500).json({ error: 'Error saving diary' });
+    // 지역 ID 조회
+    const getRegionIdQuery = 'SELECT id FROM region WHERE name = ?';
+    connection.query(getRegionIdQuery, [regionName], (regionErr, regionResult) => {
+      if (regionErr) {
+        console.error(regionErr);
+        return res.status(500).json({ error: 'Error retrieving region information' });
       }
 
-      const diaryId = diaryResult.insertId;
+      if (regionResult.length === 0) {
+        return res.status(404).json({ error: 'Region not found' });
+      }
 
-      // 3. 지역 정보 저장
-      const saveRegionQuery = 'INSERT INTO diaryregion (diaryId, userId, regionId) VALUES (?, ?, ?)';
-      const regionValues = [diaryId, userId, regionId];
+      const regionId = regionResult[0].id;
 
-      connection.query(saveRegionQuery, regionValues, (regionErr) => {
-        if (regionErr) {
-          console.error(regionErr);
-          return res.status(500).json({ error: 'Error saving region information' });
+      // 지역 정보 저장
+      const saveDiaryQuery = 'INSERT INTO diary (userId, regionId) VALUES (?, ?)';
+      const diaryValues = [userId, regionId];
+
+      connection.query(saveDiaryQuery, diaryValues, (diaryErr, diaryResult) => {
+        if (diaryErr) {
+          console.error(diaryErr);
+          return res.status(500).json({ error: 'Error saving diary information' });
         }
 
-        res.status(200).json({ message: 'Diary and region information saved successfully' });
+        res.status(200).json({ message: 'Region information saved successfully', diaryId: diaryResult.insertId });
       });
     });
   });
 };
 
-// 일지의 장르 정보 저장 API
-exports.saveDiaryGenre = (req, res) => {
-  const { diaryId, genreId } = req.body;
+// 장르를 저장하는 API
+exports.saveGenre = (req, res) => {
+  const { genreId, diaryId } = req.body;
 
-  // DiaryGenre 테이블에 일지의 장르 정보 저장
-  const insertDiaryGenreQuery = 'INSERT INTO DiaryGenre (diaryId, genreId) VALUES (?, ?)';
-  const values = [diaryId, genreId];
+  // 여러 장르를 저장하기 위해 배치를 사용
+  const saveGenreQuery = 'INSERT INTO diarygenre (diaryId, genreId) VALUES ?';
+  const genreValues = genreId.map(genreId => [diaryId, genreId]);
 
-  connection.query(insertDiaryGenreQuery, values, (insertErr) => {
-    if (insertErr) {
-      console.error(insertErr);
-      return res.status(500).json({ error: 'Error inserting diary genre information' });
+  connection.query(saveGenreQuery, [genreValues], (genreErr) => {
+    if (genreErr) {
+      console.error(genreErr);
+      return res.status(500).json({ error: 'Error saving genre information' });
     }
 
-    res.status(200).json({ message: 'Diary genre information saved successfully' });
+    res.status(200).json({ message: 'Genre information saved successfully' });
   });
 };
+
+// 일지 내용을 저장하는 API
+exports.saveDiary = (req, res) => {
+  const { diaryId, contents } = req.body;
+
+  // contents 배열에서 각 내용을 하나씩 처리
+  contents.forEach(content => {
+    const { contentType, contentText, align, imageSrc, cardNewsId } = content;
+
+    // diaryContent 테이블에 내용 저장
+    const saveContentQuery = 'INSERT INTO diaryContent (diaryId, contentType, content, align, imageSrc, cardNewsId) VALUES (?, ?, ?, ?, ?, ?)';
+    const contentValues = [diaryId, contentType, contentText, align, imageSrc, cardNewsId];
+
+    connection.query(saveContentQuery, contentValues, (contentErr) => {
+      if (contentErr) {
+        console.error(contentErr);
+        return res.status(500).json({ error: 'Error saving diary content' });
+      }
+    });
+  });
+
+  res.status(200).json({ message: 'Diary content saved successfully' });
+};
+
+
 
 // 카드뉴스 저장 API
 exports.saveCardNews = (req, res) => {
