@@ -37,20 +37,20 @@ const upload = multer({
 
 // 회원가입 API(이메일)
 exports.signup = (req, res) => {
-    const { email } = req.body;
-  
-    const sql = 'INSERT INTO user (email) VALUES (?)';
-    connection.query(sql, [email], (err, result) => {
-      if (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Error registering user' });
-        return;
-      }
+  const { email } = req.body;
 
-      // 사용자 등록 후 생성된 ID를 반환
-      const userId = result.insertId;
-      res.status(200).json({ message: 'User registered successfully', userId });
-    });
+  const sql = 'INSERT INTO user (email) VALUES (?)';
+  connection.query(sql, [email], (err, result) => {
+    if (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error registering user' });
+      return;
+    }
+
+    // 사용자 등록 후 생성된 ID를 반환
+    const userId = result.insertId;
+    res.status(200).json({ message: 'User registered successfully', userId });
+  });
 };
 
 // 이메일 중복 확인 API
@@ -69,17 +69,17 @@ exports.emailDuplicate = (req, res) => {
 
 // 회원가입 API 2 (아이디)
 exports.signup2 = (req, res) => {
-    const { email, userid } = req.body;
-  
-    const sql = 'UPDATE user SET userid = ? WHERE email = ?';
-    connection.query(sql, [userid, email], (err, updateResult) => {
-      if (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Error updating user information' });
-        return;
-      }
-      res.status(200).json({ message: 'User registered successfully' });
-    });
+  const { email, userid } = req.body;
+
+  const sql = 'UPDATE user SET userid = ? WHERE email = ?';
+  connection.query(sql, [userid, email], (err, updateResult) => {
+    if (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error updating user information' });
+      return;
+    }
+    res.status(200).json({ message: 'User registered successfully' });
+  });
 };
 
 // 아이디 중복 확인 API
@@ -97,70 +97,70 @@ exports.checkDuplicate = (req, res) => {
 };
 
 // 회원가입 API 3 (비밀번호)
-exports.signup3 = (req,res) => {
-  const {email, pw} = req.body;
+exports.signup3 = (req, res) => {
+  const { email, pw } = req.body;
   const sql = 'UPDATE user SET pw = ? WHERE email = ?';
-  connection.query(sql, [pw, email], (err, updateResult)=>{
-    if(err){
+  connection.query(sql, [pw, email], (err, updateResult) => {
+    if (err) {
       console.error(err);
       res.status(500).json({ error: 'Error updating user information' });
-        return;
-      }
-      res.status(200).json({ message: 'User registered successfully' });
+      return;
+    }
+    res.status(200).json({ message: 'User registered successfully' });
   })
 };
 
 // 회원가입 API 4 (닉네임)
-exports.signup4 = (req,res) => {
-  const {email, name} = req.body;
+exports.signup4 = (req, res) => {
+  const { email, name } = req.body;
   const sql = 'UPDATE user SET name = ? WHERE email = ?';
-  connection.query(sql, [name, email], (err, updateResult)=>{
-    if(err){
+  connection.query(sql, [name, email], (err, updateResult) => {
+    if (err) {
       console.error(err);
       res.status(500).json({ error: 'Error updating user information' });
-        return;
-      }
-      res.status(200).json({ message: 'User registered successfully' });
+      return;
+    }
+    res.status(200).json({ message: 'User registered successfully' });
   })
 };
 
 // 회원가입 및 이미지 업로드 (API)
 exports.signup5 = (req, res) => {
-    // 이미지 업로드 처리
-    upload(req, res, function (uploadErr) {
-        if (uploadErr instanceof multer.MulterError) {
-            return res.status(500).json({ success: false, message: '이미지 업로드 실패' });
-        } else if (uploadErr) {
-            console.error('Upload Error:', uploadErr);
-            return res.status(500).json({ success: false, message: '서버 오류 발생', error: uploadErr.message });
-        }
+  // 이미지 업로드 처리
+  upload(req, res, function (uploadErr) {
+    if (uploadErr instanceof multer.MulterError) {
+      return res.status(500).json({ success: false, message: '이미지 업로드 실패' });
+    } else if (uploadErr) {
+      console.error('Upload Error:', uploadErr);
+      return res.status(500).json({ success: false, message: '서버 오류 발생', error: uploadErr.message });
+    }
 
-        const image_url = req.file ? `/uploads/${req.file.filename}` : null;
-        // 회원가입 정보 업데이트
-        const {email} = req.body;
-        const sql = 'UPDATE user SET image_url = ? WHERE email = ?';
-        connection.query(sql, [image_url, email], (err, updateResult) => {
-            if (err) {
-                console.error(err);
-                res.status(500).json({ error: 'Error updating user information' });
-                return;
-            }
-            res.status(200).json({ success: true, message: 'User registered successfully', image_url });
-        });
+    const image_url = req.file ? `/uploads/${req.file.filename}` : null;
+    // 회원가입 정보 업데이트
+    const { email } = req.body;
+    const sql = 'UPDATE user SET image_url = ? WHERE email = ?';
+    connection.query(sql, [image_url, email], (err, updateResult) => {
+      if (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error updating user information' });
+        return;
+      }
+      res.status(200).json({ success: true, message: 'User registered successfully', image_url });
     });
+  });
 };
 
 // 회원가입 API 6 (생년월일)
-exports.signup6 = (req,res) => {
-  const {email, birth} = req.body;
+exports.signup6 = (req, res) => {
+  const { email, birth } = req.body;
   const sql = 'UPDATE user SET birth = ? WHERE email = ?';
-  connection.query(sql, [birth, email], (err, updateResult)=>{
-    if(err){
+  connection.query(sql, [birth, email], (err, updateResult) => {
+    if (err) {
       console.error(err);
       res.status(500).json({ error: 'Error updating user information' });
-        return;
-      }
-      res.status(200).json({ message: 'User registered successfully' });
+      return;
+    }
+    res.status(200).json({ message: 'User registered successfully' });
   })
 };
 
@@ -197,25 +197,25 @@ exports.signup7 = (req, res) => {
 
 // 이메일 인증 코드 요청 API
 exports.certificate = async (req, res) => {
-    const { email } = req.body;
-    const deleteAuthCodeSql = 'DELETE FROM verification_codes WHERE email = ?';
-    connection.query(deleteAuthCodeSql, [email], async (deleteErr, deleteResult) => {
-      if (deleteErr) {
-        console.error(deleteErr);
-        return res.status(500).json({ error: '기존 인증 코드를 삭제하는 중 오류가 발생하였습니다.' });
-      }
-      const verificationCode = Math.floor(10000 + Math.random() * 90000);
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: "jamda831@gmail.com",
-          pass: "nhvluiqogrktkieu",
-        },
-      });
-      const mailOptions = {
-        to: email,
-        subject: "이메일 인증",
-        html: `    <div style="margin: 5%; margin-bottom: 6px;"><p style="width: 50%; color:#F8AC0B; font-weight: bolder; font-size: 50px; margin-bottom: 0">Duk'z</p></div>
+  const { email } = req.body;
+  const deleteAuthCodeSql = 'DELETE FROM verification_codes WHERE email = ?';
+  connection.query(deleteAuthCodeSql, [email], async (deleteErr, deleteResult) => {
+    if (deleteErr) {
+      console.error(deleteErr);
+      return res.status(500).json({ error: '기존 인증 코드를 삭제하는 중 오류가 발생하였습니다.' });
+    }
+    const verificationCode = Math.floor(10000 + Math.random() * 90000);
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: "jamda831@gmail.com",
+        pass: "nhvluiqogrktkieu",
+      },
+    });
+    const mailOptions = {
+      to: email,
+      subject: "이메일 인증",
+      html: `    <div style="margin: 5%; margin-bottom: 6px;"><p style="width: 50%; color:#F8AC0B; font-weight: bolder; font-size: 50px; margin-bottom: 0">Duk'z</p></div>
         <div style="height: 2px; width: 90%; margin-left: 5%; background-color: #F8AC0B;"></div>
         <h2 style="margin-left: 5%; margin-top: 30px; margin-bottom: 30px;">고객님의 인증번호는 다음과 같습니다.</h2>
         <div style=" height: 230px; width: 90%; margin-left: 5%; border: 2px solid #C1C1C1">
@@ -228,79 +228,79 @@ exports.certificate = async (req, res) => {
             <br>
             감사합니다.
         </p>`,
-      };
-      
-      const insertAuthCodeSql = 'INSERT INTO verification_codes (email, code) VALUES (?, ?)';
-      connection.query(insertAuthCodeSql, [email, verificationCode], async (insertErr, insertResult) => {
-        if (insertErr) {
-          console.error(insertErr);
-          return res.status(500).json({ error: '이메일을 발송하는 중 오류가 발생하였습니다.' });
-        }
-        try {
-          const info = await transporter.sendMail(mailOptions);
-          console.log(info);
-          return res.status(200).json({ message: "이메일이 성공적으로 전송되었습니다." });
-        } catch (error) {
-          console.error(error);
-          return res.status(500).json({ error: "이메일 전송 중에 오류가 발생했습니다." });
-        }
-      });
+    };
+
+    const insertAuthCodeSql = 'INSERT INTO verification_codes (email, code) VALUES (?, ?)';
+    connection.query(insertAuthCodeSql, [email, verificationCode], async (insertErr, insertResult) => {
+      if (insertErr) {
+        console.error(insertErr);
+        return res.status(500).json({ error: '이메일을 발송하는 중 오류가 발생하였습니다.' });
+      }
+      try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log(info);
+        return res.status(200).json({ message: "이메일이 성공적으로 전송되었습니다." });
+      } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: "이메일 전송 중에 오류가 발생했습니다." });
+      }
     });
-    
+  });
+
 };
 
 // 인증번호 확인 함수
 exports.checkAuthCode = (req, res) => {
-    const { email, code } = req.body;
-    
-    // 사용자가 입력한 이메일과 인증번호를 검색하여 확인
-    const checkAuthCodeSql = 'SELECT * FROM verification_codes WHERE email = ? AND code = ?';
-    connection.query(checkAuthCodeSql, [email, code], (err, result) => {
-      if (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Error checking auth code' });
-        return;
-      }
-      // 결과에서 매치되는 레코드를 찾지 못하면 인증 실패
-      if (result.length === 0) {
-        res.status(201).json({ message: '인증번호가 일치하지 않습니다.' });
-        console.log(result);
-        return;
-      }
-      // 인증 성공
-      return res.status(200).json({ message: '인증번호가 확인되었습니다.' });
-    });
+  const { email, code } = req.body;
+
+  // 사용자가 입력한 이메일과 인증번호를 검색하여 확인
+  const checkAuthCodeSql = 'SELECT * FROM verification_codes WHERE email = ? AND code = ?';
+  connection.query(checkAuthCodeSql, [email, code], (err, result) => {
+    if (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error checking auth code' });
+      return;
+    }
+    // 결과에서 매치되는 레코드를 찾지 못하면 인증 실패
+    if (result.length === 0) {
+      res.status(201).json({ message: '인증번호가 일치하지 않습니다.' });
+      console.log(result);
+      return;
+    }
+    // 인증 성공
+    return res.status(200).json({ message: '인증번호가 확인되었습니다.' });
+  });
 };
 
 // 로그인 API
 exports.login = (req, res) => {
   const { userid, pw } = req.body;
-    const token = randomstring.generate(40);
-    const sql = 'SELECT * FROM user WHERE userid = ? AND pw = ?';
-    connection.query(sql, [userid, pw], (err, result) => {
-      if (err) {
-        console.error(err);
-        res.status(500).json({ error: '로그인 중 오류가 발생했습니다.' });
+  const token = randomstring.generate(40);
+  const sql = 'SELECT * FROM user WHERE userid = ? AND pw = ?';
+  connection.query(sql, [userid, pw], (err, result) => {
+    if (err) {
+      console.error(err);
+      res.status(500).json({ error: '로그인 중 오류가 발생했습니다.' });
+      return;
+    }
+    if (result.length === 0) {
+      res.status(401).json({ error: '잘못된 자격 증명' });
+      return;
+    }
+    const userData = {
+      userid: result[0].userid,
+      token: token,
+      hasProfile: result[0].hasProfile,
+    };
+    // 사용자 정보에 토큰 업데이트
+    connection.query('UPDATE user SET accesstoken = ? WHERE userid = ?', [token, userid], (updateErr, updateResult) => {
+      if (updateErr) {
+        console.error(updateErr);
+        res.status(500).json({ error: '토큰 업데이트 중 오류가 발생했습니다.' });
         return;
       }
-      if (result.length === 0) {
-        res.status(401).json({ error: '잘못된 자격 증명' });
-        return;
-      }
-      const userData = {
-        userid: result[0].userid,
-        token: token,
-        hasProfile: result[0].hasProfile, 
-      };
-      // 사용자 정보에 토큰 업데이트
-      connection.query('UPDATE user SET accesstoken = ? WHERE userid = ?', [token, userid], (updateErr, updateResult) => {
-        if (updateErr) {
-          console.error(updateErr);
-          res.status(500).json({ error: '토큰 업데이트 중 오류가 발생했습니다.' });
-          return;
-        }
-        res.status(200).json(userData);
-      });
+      res.status(200).json(userData);
+    });
   });
 };
 
@@ -317,7 +317,7 @@ exports.getName = (req, res) => {
     }
 
     const userName = result[0].name;
-    
+
     res.status(200).json({
       name: userName
     });
@@ -422,7 +422,7 @@ exports.saveDiary = (req, res) => {
 
       connection.query(saveContentQuery, contentValues, (err, results) => {
         if (err) {
-          console.error('Error executing query:', err); 
+          console.error('Error executing query:', err);
           if (err.code !== 'ER_DATA_TOO_LONG') {
             return callback(err);
           }
@@ -437,7 +437,7 @@ exports.saveDiary = (req, res) => {
     parsedContents.forEach((content, index) => {
       let imageSrc = null;
       if (content.contentType === 'image' && imageUrls.length > 0) {
-        imageSrc = imageUrls.shift(); 
+        imageSrc = imageUrls.shift();
       }
 
       saveContent(content, imageSrc, (contentErr) => {
@@ -457,7 +457,6 @@ exports.saveDiary = (req, res) => {
     });
   });
 };
-
 
 // 카드뉴스 저장 API
 exports.saveCardNews = (req, res) => {
@@ -494,50 +493,153 @@ exports.saveCardNews = (req, res) => {
   });
 };
 
+// 사용자가 선택한 일지 가져오기
+exports.getDiary = (req, res) => {
+  const { diaryId } = req.body;
+
+  // 1. 사용자의 id 가져오기
+  const getUserQuery = 'SELECT userId FROM diary WHERE diaryId = ?';
+  connection.query(getUserQuery, [diaryId], (err, userResult) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Error retrieving user ID' });
+    }
+
+    if (userResult.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userId = userResult[0].userId;
+
+    // 2. 사용자의 이름 가져오기
+    const getUserNameQuery = 'SELECT name FROM user WHERE id = ?';
+    connection.query(getUserNameQuery, [userId], (nameErr, nameResult) => {
+      if (nameErr) {
+        console.error(nameErr);
+        return res.status(500).json({ error: 'Error retrieving user name' });
+      }
+
+      if (nameResult.length === 0) {
+        return res.status(404).json({ error: 'User name not found' });
+      }
+
+      const userName = nameResult[0].name;
+
+      // 3. 선택한 일지의 내용 가져오기
+      const getDiaryContentQuery = 'SELECT * FROM diaryContent WHERE diaryId = ? ORDER BY diaryId ASC';
+      connection.query(getDiaryContentQuery, [diaryId], (diaryErr, diaryResult) => {
+        if (diaryErr) {
+          console.error(diaryErr);
+          return res.status(500).json({ error: 'Error retrieving diary content' });
+        }
+
+        if (diaryResult.length === 0) {
+          return res.status(404).json({ error: 'No diary content found for the specified diaryId' });
+        }
+
+        // diaryId를 기준으로 그룹화
+        const groupedDiaries = diaryResult.reduce((acc, content) => {
+          if (!acc[content.diaryId]) {
+            acc[content.diaryId] = [];
+          }
+          acc[content.diaryId].push(content);
+          return acc;
+        }, {});
+
+        // 배열 형태로 변환
+        const groupedDiariesArray = Object.values(groupedDiaries);
+
+        res.status(200).json({ recommendedDiaries: groupedDiariesArray, name: userName });
+      });
+    });
+  });
+};
+
+
 // 사용자의 선호하는 장르 기반으로 추천 일지 가져오기
 exports.getRecommendedDiaries = (req, res) => {
   const { userid } = req.body;
 
-  // 1. 사용자의 선호하는 장르 가져오기
-  const getUserGenresQuery = 'SELECT genreId FROM UserGenrePreference WHERE userId = ?';
-  connection.query(getUserGenresQuery, [userid], (err, result) => {
+  // 1. 사용자의 id 가져오기
+  const getUserQuery = 'SELECT id FROM user WHERE userid = ?';
+  connection.query(getUserQuery, [userid], (err, userResult) => {
     if (err) {
       console.error(err);
-      return res.status(500).json({ error: 'Error retrieving user genre preferences' });
+      return res.status(500).json({ error: 'Error retrieving user ID' });
     }
 
-    if (result.length === 0) {
-      return res.status(404).json({ error: 'User genre preferences not found' });
+    if (userResult.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    // 2. 장르별 일지 가져오기
-    const genreIds = result.map((row) => row.genreId);
-    const getDiariesByGenresQuery = 'SELECT DISTINCT diaryId FROM DiaryGenre WHERE genreId IN (?)';
-    connection.query(getDiariesByGenresQuery, [genreIds], (diaryErr, diaryResult) => {
-      if (diaryErr) {
-        console.error(diaryErr);
-        return res.status(500).json({ error: 'Error retrieving diaries by genres' });
+    const userId = userResult[0].id;
+
+    // 2. 사용자의 선호하는 장르 가져오기
+    const getUserGenresQuery = 'SELECT genreId FROM UserGenrePreference WHERE userId = ?';
+    connection.query(getUserGenresQuery, [userId], (genreErr, genreResult) => {
+      if (genreErr) {
+        console.error(genreErr);
+        return res.status(500).json({ error: 'Error retrieving user genre preferences' });
       }
 
-      if (diaryResult.length === 0) {
-        return res.status(404).json({ error: 'No diaries found for the specified genres' });
+      if (genreResult.length === 0) {
+        return res.status(404).json({ error: 'User genre preferences not found' });
       }
 
-      // 3. 추천 로직 적용 (예시: 간단하게 처음 일지 선택)
-      const recommendedDiaryId = diaryResult[0].diaryId;
+      // 장르 ID 배열 생성
+      const genreIds = genreResult.map((row) => row.genreId);
 
-      // 4. 클라이언트에게 전달
-      return res.status(200).json({ recommendedDiaryId });
+      // 3. 장르별 일지 가져오기
+      const getDiariesByGenresQuery = 'SELECT DISTINCT diaryId FROM diaryGenre WHERE genreId IN (?)';
+      connection.query(getDiariesByGenresQuery, [genreIds], (diaryErr, diaryResult) => {
+        if (diaryErr) {
+          console.error(diaryErr);
+          return res.status(500).json({ error: 'Error retrieving diaries by genres' });
+        }
+
+        if (diaryResult.length === 0) {
+          return res.status(404).json({ error: 'No diaries found for the specified genres' });
+        }
+
+        // diaryResult에서 추출된 diaryId 배열 생성
+        const diaryIds = diaryResult.map((row) => row.diaryId);
+
+        // 4. 추천 일지의 내용 가져오기
+        const getDiaryContentsQuery = 'SELECT * FROM diaryContent WHERE diaryId IN (?) ORDER BY diaryId ASC';
+        connection.query(getDiaryContentsQuery, [diaryIds], (contentErr, contentResult) => {
+          if (contentErr) {
+            console.error(contentErr);
+            return res.status(500).json({ error: 'Error retrieving diary contents' });
+          }
+
+          // diaryId를 기준으로 그룹화
+          const groupedDiaries = contentResult.reduce((acc, content) => {
+            if (!acc[content.diaryId]) {
+              acc[content.diaryId] = [];
+            }
+            acc[content.diaryId].push(content);
+            return acc;
+          }, {});
+
+          // 배열 형태로 변환
+          const groupedDiariesArray = Object.values(groupedDiaries);
+
+          // 모든 작업이 완료되면 클라이언트에 응답 보내기
+          res.status(200).json({ recommendedDiaries: groupedDiariesArray });
+        });
+      });
     });
   });
 };
+
+
 
 // 사용자 이미지 URL 불러오기 API
 exports.getUrl = (req, res) => {
   const { userid } = req.body;
 
   const getUserImageQuery = 'SELECT image_url FROM user WHERE userid = ?';
-  
+
   connection.query(getUserImageQuery, [userid], (err, result) => {
     if (err) {
       console.error(err);
@@ -694,18 +796,18 @@ exports.changeUserPw = (req, res) => {
 // 비밀번호 테스트 API
 exports.passwordTest = (req, res) => {
   const { userid, pw } = req.body;
-    const sql = 'SELECT * FROM user WHERE userid = ? AND pw = ?';
-    connection.query(sql, [userid, pw], (err, result) => {
-      if (err) {
-        console.error(err);
-        res.status(500).json({ error: '오류가 발생했습니다.' });
-        return;
-      }
-      if (result.length === 0) {
-        res.status(401).json({ error: '잘못된 자격 증명' });
-        return;
-      }
-      res.status(200).json({ message: 'This is the correct password' });
+  const sql = 'SELECT * FROM user WHERE userid = ? AND pw = ?';
+  connection.query(sql, [userid, pw], (err, result) => {
+    if (err) {
+      console.error(err);
+      res.status(500).json({ error: '오류가 발생했습니다.' });
+      return;
+    }
+    if (result.length === 0) {
+      res.status(401).json({ error: '잘못된 자격 증명' });
+      return;
+    }
+    res.status(200).json({ message: 'This is the correct password' });
   });
 };
 
@@ -713,48 +815,48 @@ exports.passwordTest = (req, res) => {
 exports.changeUserImage = (req, res) => {
   // 이미지 업로드 처리
   upload(req, res, function (uploadErr) {
-      if (uploadErr instanceof multer.MulterError) {
-          return res.status(500).json({ success: false, message: '이미지 업로드 실패' });
-      } else if (uploadErr) {
-          console.error('Upload Error:', uploadErr);
-          return res.status(500).json({ success: false, message: '서버 오류 발생', error: uploadErr.message });
+    if (uploadErr instanceof multer.MulterError) {
+      return res.status(500).json({ success: false, message: '이미지 업로드 실패' });
+    } else if (uploadErr) {
+      console.error('Upload Error:', uploadErr);
+      return res.status(500).json({ success: false, message: '서버 오류 발생', error: uploadErr.message });
+    }
+
+    const newImageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+
+    // 기존 이미지를 가져오기 위한 쿼리
+    const { userid } = req.body;
+    const getOldImageUrlQuery = 'SELECT image_url FROM user WHERE userid = ?';
+    connection.query(getOldImageUrlQuery, [userid], (err, result) => {
+      if (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Error retrieving old image URL' });
+        return;
       }
 
-      const newImageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+      const oldImageUrl = result[0].image_url;
 
-      // 기존 이미지를 가져오기 위한 쿼리
-      const { userid } = req.body;
-      const getOldImageUrlQuery = 'SELECT image_url FROM user WHERE userid = ?';
-      connection.query(getOldImageUrlQuery, [userid], (err, result) => {
-          if (err) {
-              console.error(err);
-              res.status(500).json({ error: 'Error retrieving old image URL' });
-              return;
-          }
+      const updateUserInfoQuery = 'UPDATE user SET image_url = ? WHERE userid = ?';
+      connection.query(updateUserInfoQuery, [newImageUrl, userid], (updateErr, updateResult) => {
+        if (updateErr) {
+          console.error(updateErr);
+          res.status(500).json({ error: 'Error updating user image' });
+          return;
+        }
 
-          const oldImageUrl = result[0].image_url;
-
-          const updateUserInfoQuery = 'UPDATE user SET image_url = ? WHERE userid = ?';
-          connection.query(updateUserInfoQuery, [newImageUrl, userid], (updateErr, updateResult) => {
-              if (updateErr) {
-                  console.error(updateErr);
-                  res.status(500).json({ error: 'Error updating user image' });
-                  return;
-              }
-
-              // 이전 이미지 삭제
-              if (oldImageUrl && oldImageUrl !== newImageUrl) {
-                  const oldImagePath = path.join(__dirname, oldImageUrl);
-                  fs.unlink(oldImagePath, (unlinkErr) => {
-                      if (unlinkErr) {
-                          console.error('Error deleting old image:', unlinkErr);
-                      }
-                  });
-              }
-
-              res.status(200).json({ success: true, message: 'User image updated successfully', newImageUrl });
+        // 이전 이미지 삭제
+        if (oldImageUrl && oldImageUrl !== newImageUrl) {
+          const oldImagePath = path.join(__dirname, oldImageUrl);
+          fs.unlink(oldImagePath, (unlinkErr) => {
+            if (unlinkErr) {
+              console.error('Error deleting old image:', unlinkErr);
+            }
           });
+        }
+
+        res.status(200).json({ success: true, message: 'User image updated successfully', newImageUrl });
       });
+    });
   });
 };
 

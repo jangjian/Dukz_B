@@ -42,6 +42,12 @@ router.post("/saveGenre",userController.saveGenre);
 // 일지 저장 라우트 3
 router.post("/saveDiary",userController.saveDiary);
 
+// 장르 추천 일지 불러오기 라우트 
+router.post("/getRecommendedDiaries",userController.getRecommendedDiaries);
+
+// 일지 불러오기 라우트 
+router.post("/getDiary",userController.getDiary);
+
 // 카드 뉴스 저장 API
 router.post("/saveCardNews",userController.saveCardNews);
 
