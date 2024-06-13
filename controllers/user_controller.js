@@ -588,7 +588,7 @@ exports.getRecommendedDiaries = (req, res) => {
       const genreIds = genreResult.map((row) => row.genreId);
 
       // 3. 장르별 일지 가져오기
-      const getDiariesByGenresQuery = 'SELECT DISTINCT diaryId FROM diaryGenre WHERE genreId IN (?)';
+      const getDiariesByGenresQuery = 'SELECT DISTINCT diaryId FROM diarygenre WHERE genreId IN (?)';
       connection.query(getDiariesByGenresQuery, [genreIds], (diaryErr, diaryResult) => {
         if (diaryErr) {
           console.error(diaryErr);
@@ -629,7 +629,6 @@ exports.getRecommendedDiaries = (req, res) => {
     });
   });
 };
-
 
 
 // 사용자 이미지 URL 불러오기 API
