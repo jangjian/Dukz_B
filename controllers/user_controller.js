@@ -7,7 +7,7 @@ const randomstring = require('randomstring');
 
 const connection = mysql.createConnection({
   host: 'localhost',
-  user: 'root',
+  user: 'dukz',
   password: '1011',
   database: 'dukz_db'
 });
@@ -537,7 +537,6 @@ exports.getDiary = (req, res) => {
           return res.status(404).json({ error: 'No diary content found for the specified diaryId' });
         }
 
-        // diaryId를 기준으로 그룹화
         const groupedDiaries = diaryResult.reduce((acc, content) => {
           if (!acc[content.diaryId]) {
             acc[content.diaryId] = [];
@@ -546,7 +545,6 @@ exports.getDiary = (req, res) => {
           return acc;
         }, {});
 
-        // 배열 형태로 변환
         const groupedDiariesArray = Object.values(groupedDiaries);
 
         res.status(200).json({ recommendedDiaries: groupedDiariesArray, name: userName });
