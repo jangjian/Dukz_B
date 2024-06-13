@@ -379,7 +379,7 @@ exports.saveRegion = (req, res) => {
 exports.saveGenre = (req, res) => {
   const { diaryId, genres } = req.body;
 
-  const insertGenresQuery = 'INSERT INTO diaryGenre (diaryId, genreId) VALUES ?';
+  const insertGenresQuery = 'INSERT INTO diarygenre (diaryId, genreId) VALUES ?';
   const values = genres.map((genreId) => [diaryId, genreId]);
 
   connection.query(insertGenresQuery, [values], (insertErr) => {
