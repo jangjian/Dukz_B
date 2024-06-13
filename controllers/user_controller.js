@@ -1,29 +1,39 @@
+const express = require('express');
+const bodyParser = require('body-parser');
+const multer = require('multer');
+const path = require('path');
 const mysql = require('mysql2');
 const randomstring = require('randomstring');
-const nodemailer = require('nodemailer');
+
 const connection = mysql.createConnection({
   host: 'localhost',
-  user: 'dukz',
+  user: 'root',
   password: '1011',
   database: 'dukz_db'
 });
 
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+
+const app = express();
+
+// body-parser를 사용하여 페이로드 크기 제한을 늘립니다.
+app.use(bodyParser.json({ limit: '100mb' }));
+app.use(bodyParser.urlencoded({ limit: '100mb', extended: true }));
 
 // 이미지 저장 디렉토리 설정
 const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, 'uploads/');
-    },
-    filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now() + '_' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + path.extname(file.originalname));
-    }
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '_' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
 });
 
-const upload = multer({ storage: storage }).single('profile_image');
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB
+}).array('images', 10);
 
 // 회원가입 API(이메일)
 exports.signup = (req, res) => {
@@ -318,6 +328,9 @@ exports.getName = (req, res) => {
 exports.saveRegion = (req, res) => {
   const { regionName, userid } = req.body;
 
+  app.use(bodyParser.json({ limit: '100mb' }));
+  app.use(bodyParser.urlencoded({ limit: '100mb', extended: true }));
+
   // 사용자 정보 조회
   const getUserIdQuery = 'SELECT id FROM user WHERE userid = ?';
   connection.query(getUserIdQuery, [userid], (userErr, userResult) => {
@@ -364,78 +377,70 @@ exports.saveRegion = (req, res) => {
 
 // 장르를 저장하는 API
 exports.saveGenre = (req, res) => {
-  const { genreId, diaryId } = req.body;
+  const { diaryId, genres } = req.body;
 
-  const genreIds = Array.isArray(genreId) ? genreId : [genreId];
+  const insertGenresQuery = 'INSERT INTO diaryGenre (diaryId, genreId) VALUES ?';
+  const values = genres.map((genreId) => [diaryId, genreId]);
 
-  const saveGenreQuery = 'INSERT INTO diarygenre (diaryId, genreId) VALUES ?';
-  const genreValues = genreIds.map(genreId => [diaryId, genreId]);
-
-  connection.query(saveGenreQuery, [genreValues], (genreErr) => {
-    if (genreErr) {
-      console.error(genreErr);
-      return res.status(500).json({ error: 'Error saving genre information' });
+  connection.query(insertGenresQuery, [values], (insertErr) => {
+    if (insertErr) {
+      console.error(insertErr);
+      return res.status(500).json({ error: 'Error inserting genre preferences' });
     }
 
-    res.status(200).json({ message: 'Genre information saved successfully' });
+    res.status(200).json({ message: 'Genre preferences saved successfully' });
   });
 };
 
 // 일지 내용을 저장하는 API
 exports.saveDiary = (req, res) => {
-  const { diaryId, contents } = req.body;
+  upload(req, res, function (uploadErr) {
+    if (uploadErr) {
+      console.error('Upload Error:', uploadErr);
+      return res.status(500).json({ error: 'Error uploading image', details: uploadErr.message });
+    }
 
-  const saveContent = (content, callback) => {
-    const { contentType, contentText, align, imageSrc, cardNewsId, subtitle, title } = content;
+    const imageUrls = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
+    const { diaryId, contents } = req.body;
 
-    const saveContentQuery = 'INSERT INTO diaryContent (diaryId, contentType, content, align, imageSrc, cardNewsId, subtitle, title) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
-    const contentValues = [diaryId, contentType, contentText, align, imageSrc, cardNewsId, subtitle, title];
+    let parsedContents;
+    try {
+      parsedContents = JSON.parse(contents);
+      if (!Array.isArray(parsedContents)) {
+        throw new Error('Parsed contents is not an array');
+      }
+    } catch (parseErr) {
+      console.error('Error parsing contents:', parseErr);
+      return res.status(400).json({ error: 'Invalid contents format' });
+    }
 
-    connection.query(saveContentQuery, contentValues, callback);
-  };
+    const saveContent = (content, imageSrc, callback) => {
+      const { contentType, contentText, align, cardNewsId } = content;
 
-  let remaining = contents.length;
-  const errors = [];
+      const saveContentQuery = 'INSERT INTO diaryContent (diaryId, contentType, content, align, imageSrc, cardNewsId) VALUES (?, ?, ?, ?, ?, ?)';
+      const contentValues = [diaryId, contentType, contentText, align, imageSrc, cardNewsId];
 
-  contents.forEach(content => {
-    if (content.contentType === 'image') {
-      // 이미지 업로드 처리
-      const { imageSrc } = content;
-      const imagePath = `/uploads/${imageSrc}`;
-
-      fs.writeFile(imagePath, imageSrc, 'base64', (err) => {
+      connection.query(saveContentQuery, contentValues, (err, results) => {
         if (err) {
-          errors.push(err);
-          remaining -= 1;
-          if (remaining === 0) {
-            if (errors.length > 0) {
-              console.error(errors);
-              res.status(500).json({ error: 'Error saving diary content', details: errors });
-            } else {
-              res.status(200).json({ message: 'Diary content saved successfully' });
-            }
+          console.error('Error executing query:', err); 
+          if (err.code !== 'ER_DATA_TOO_LONG') {
+            return callback(err);
           }
-        } else {
-          // 이미지 업로드 성공 시, 이미지 경로를 content 객체에 업데이트
-          content.imageSrc = imagePath;
-          saveContent(content, (contentErr) => {
-            if (contentErr) {
-              errors.push(contentErr);
-            }
-            remaining -= 1;
-            if (remaining === 0) {
-              if (errors.length > 0) {
-                console.error(errors);
-                res.status(500).json({ error: 'Error saving diary content', details: errors });
-              } else {
-                res.status(200).json({ message: 'Diary content saved successfully' });
-              }
-            }
-          });
         }
+        callback(null, results);
       });
-    } else {
-      saveContent(content, (contentErr) => {
+    };
+
+    let remaining = parsedContents.length;
+    const errors = [];
+
+    parsedContents.forEach((content, index) => {
+      let imageSrc = null;
+      if (content.contentType === 'image' && imageUrls.length > 0) {
+        imageSrc = imageUrls.shift(); 
+      }
+
+      saveContent(content, imageSrc, (contentErr) => {
         if (contentErr) {
           errors.push(contentErr);
         }
@@ -449,7 +454,7 @@ exports.saveDiary = (req, res) => {
           }
         }
       });
-    }
+    });
   });
 };
 
