@@ -377,20 +377,18 @@ exports.saveRegion = (req, res) => {
 
 // 장르를 저장하는 API
 exports.saveGenre = (req, res) => {
-  const { genreId, diaryId } = req.body;
+  const { diaryId, genres } = req.body;
 
-  const genreIds = Array.isArray(genreId) ? genreId : [genreId];
+  const insertGenresQuery = 'INSERT INTO diaryGenre (diaryId, genreId) VALUES ?';
+  const values = genres.map((genreId) => [diaryId, genreId]);
 
-  const saveGenreQuery = 'INSERT INTO diarygenre (diaryId, genreId) VALUES ?';
-  const genreValues = genreIds.map(genreId => [diaryId, genreId]);
-
-  connection.query(saveGenreQuery, [genreValues], (genreErr) => {
-    if (genreErr) {
-      console.error(genreErr);
-      return res.status(500).json({ error: 'Error saving genre information' });
+  connection.query(insertGenresQuery, [values], (insertErr) => {
+    if (insertErr) {
+      console.error(insertErr);
+      return res.status(500).json({ error: 'Error inserting genre preferences' });
     }
 
-    res.status(200).json({ message: 'Genre information saved successfully' });
+    res.status(200).json({ message: 'Genre preferences saved successfully' });
   });
 };
 
