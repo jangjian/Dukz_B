@@ -4,6 +4,8 @@ const multer = require('multer');
 const path = require('path');
 const mysql = require('mysql2');
 const randomstring = require('randomstring');
+const nodemailer = require('nodemailer');
+
 const connection = mysql.createConnection({
   host: 'localhost',
   user: 'dukz',
