@@ -5,7 +5,7 @@ const path = require('path');
 const mysql = require('mysql2');
 const randomstring = require('randomstring');
 const connection = mysql.createConnection({
-  host: 'localhost',
+  host: '%',
   user: 'dukz',
   password: '1011',
   database: 'dukz_db'
