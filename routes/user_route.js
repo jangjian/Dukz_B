@@ -48,25 +48,34 @@ router.post("/getRecommendedDiaries",userController.getRecommendedDiaries);
 // 일지 불러오기 라우트 
 router.post("/getDiary",userController.getDiary);
 
-// 카드 뉴스 저장 API
+// 사용자의 일지 불러오기 라우트 
+router.post("/getUserDiary",userController.getUserDiary);
+
+// 일정 저장 라우트
+router.post("/saveSchedule",userController.saveSchedule);
+
+// 일정 저장 라우트 2
+router.post("/saveScheduleItem",userController.saveScheduleItem);
+
+// 카드 뉴스 저장 라우트
 router.post("/saveCardNews",userController.saveCardNews);
 
-// 카드 뉴스 불러오기 API
+// 카드 뉴스 불러오기 라우트
 router.get("/getCardNews", userController.getCardNews);
 
-// 아이디 변경 API
+// 아이디 변경 라우트
 router.post("/changeUserId", userController.changeUserId);
 
-// 비밀번호 변경 API
+// 비밀번호 변경 라우트
 router.post("/changeUserPw", userController.changeUserPw);
 
-// 비밀번호 테스트 API
+// 비밀번호 테스트 라우트
 router.post("/passwordTest", userController.passwordTest);
 
-// 사용자 이미지 변경 API
+// 사용자 이미지 변경 라우트
 router.post("/changeUserImage", userController.changeUserImage);
 
-// 사용자 닉네임 변경 API
+// 사용자 닉네임 변경 라우트
 router.post("/changeUserName", userController.changeUserName);
 
 module.exports = router;
