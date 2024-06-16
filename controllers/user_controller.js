@@ -458,26 +458,55 @@ exports.saveDiary = (req, res) => {
   });
 };
 
+exports.saveSchedule = (req, res) => {
+  const { userId, dayId, title } = req.body;
+
+  const sql = 'INSERT INTO schedule (userId, dayId, title) VALUES (?, ?, ?)';
+  connection.query(sql, [userId, dayId, title], (err, result) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Error saving schedule' });
+    }
+
+    const scheduleId = result.insertId;
+    res.status(200).json({ message: 'Schedule saved successfully', scheduleId });
+  });
+};
+
+// 스케줄 아이템 저장 API
+exports.saveScheduleItem = (req, res) => {
+  const { scheduleId, dayId, startTime, endTime, cardNewsId } = req.body;
+
+  // 스케줄 아이템 저장
+  const saveScheduleItemQuery = 'INSERT INTO scheduleItem (scheduleId, dayId, startTime, endTime, cardNewsId) VALUES (?, ?, ?, ?, ?)';
+  const scheduleItemValues = [scheduleId, dayId, startTime, endTime, cardNewsId];
+
+  connection.query(saveScheduleItemQuery, scheduleItemValues, (err, result) => {
+    if (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error saving schedule item' });
+      return;
+    }
+
+    res.status(200).json({ message: 'Schedule item saved successfully', scheduleItemId: result.insertId });
+  });
+};
+
 // 카드뉴스 저장 API
 exports.saveCardNews = (req, res) => {
-  const { title, place, open_time, close_time, price, image_url, userid } = req.body;
-  const createDate = new Date();
-
-  // 1. 사용자 정보 조회
-  const getUserInfoQuery = 'SELECT * FROM user WHERE userid = ?';
-  connection.query(getUserInfoQuery, [userid], (userErr, userResult) => {
-    if (userErr) {
-      console.error(userErr);
-      return res.status(500).json({ error: 'Error retrieving user information' });
+  upload(req, res, function (err) {
+    if (err instanceof multer.MulterError) {
+      return res.status(500).json({ error: 'Image upload failed' });
+    } else if (err) {
+      return res.status(500).json({ error: 'Server error', details: err.message });
     }
 
-    if (userResult.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+    const { place, open_time, close_time, price, content, start, userid } = req.body;
+    const image_url = req.file ? `/uploads/${req.file.filename}` : null; // Uploaded image URL
 
-    // 2. 카드뉴스 저장
-    const saveCardNewsQuery = 'INSERT INTO cardNews (title, place, open_time, close_time, price, image_url, createDate, userid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
-    const cardNewsValues = [title, place, open_time, close_time, price, image_url, createDate, userid];
+    // Insert card news into database
+    const saveCardNewsQuery = 'INSERT INTO cardNews (title, place, open_time, close_time, price, image_url, userid) VALUES (?, ?, ?, ?, ?, ?, ?)';
+    const cardNewsValues = [title, place, open_time, close_time, price, image_url, userid];
 
     connection.query(saveCardNewsQuery, cardNewsValues, (cardNewsErr, cardNewsResult) => {
       if (cardNewsErr) {
@@ -487,7 +516,7 @@ exports.saveCardNews = (req, res) => {
 
       const cardNewsId = cardNewsResult.insertId;
 
-      // 3. 클라이언트에게 전달
+      // Respond with success message and cardNewsId
       res.status(200).json({ message: 'Card news saved successfully', cardNewsId });
     });
   });
@@ -552,7 +581,6 @@ exports.getDiary = (req, res) => {
     });
   });
 };
-
 
 // 사용자의 선호하는 장르 기반으로 추천 일지 가져오기
 exports.getRecommendedDiaries = (req, res) => {
@@ -630,6 +658,50 @@ exports.getRecommendedDiaries = (req, res) => {
   });
 };
 
+// 사용자가 선택한 일지 가져오기
+exports.getUserDiary = (req, res) => {
+  const { userid } = req.body;
+
+  // 1. 사용자의 id 가져오기
+  const getUserQuery = 'SELECT id FROM user WHERE userid = ?';
+  connection.query(getUserQuery, [userid], (err, userResult) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Error retrieving user ID' });
+    }
+
+    if (userResult.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userId = userResult[0].id;
+
+      // 3. 선택한 일지의 내용 가져오기
+      const getDiaryContentQuery = 'SELECT * FROM diaryContent WHERE diaryId = ? ORDER BY userId ASC';
+      connection.query(getDiaryContentQuery, [userId], (diaryErr, diaryResult) => {
+        if (diaryErr) {
+          console.error(diaryErr);
+          return res.status(500).json({ error: 'Error retrieving diary content' });
+        }
+
+        if (diaryResult.length === 0) {
+          return res.status(404).json({ error: 'No diary content found for the specified diaryId' });
+        }
+
+        const groupedDiaries = diaryResult.reduce((acc, content) => {
+          if (!acc[content.diaryId]) {
+            acc[content.diaryId] = [];
+          }
+          acc[content.diaryId].push(content);
+          return acc;
+        }, {});
+
+        const groupedDiariesArray = Object.values(groupedDiaries);
+
+        res.status(200).json({ recommendedDiaries: groupedDiariesArray});
+    });
+  });
+};
 
 // 사용자 이미지 URL 불러오기 API
 exports.getUrl = (req, res) => {
@@ -745,7 +817,6 @@ function getHashtagsForCardNews(cardNewsId) {
         return;
       }
 
-      // 결과에서 해시태그 가져오기
       const hashtags = hashtagsResult.map(tag => tag.hashtag);
 
       resolve(hashtags);
