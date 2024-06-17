@@ -506,7 +506,7 @@ exports.saveCardNews = (req, res) => {
       return res.status(500).json({ error: 'Server error', details: err.message });
     }
 
-    const { place, open_time, close_time, price, content, start, userid } = req.body;
+    const {title, place, open_time, close_time, price, userid } = req.body;
     const image_url = req.file ? `/uploads/${req.file.filename}` : null; // Uploaded image URL
 
     // Insert card news into database
