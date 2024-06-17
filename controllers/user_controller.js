@@ -506,11 +506,11 @@ exports.saveCardNews = (req, res) => {
       return res.status(500).json({ error: 'Server error', details: err.message });
     }
 
-    const {title, place, open_time, close_time, price, userid } = req.body;
+    const {place, open_time, close_time, price, userid, review } = req.body;
     const image_url = req.file ? `/uploads/${req.file.filename}` : null; // Uploaded image URL
 
-    const saveCardNewsQuery = 'INSERT INTO cardNews (title, place, open_time, close_time, price, image_url, userid) VALUES (?, ?, ?, ?, ?, ?, ?)';
-    const cardNewsValues = [title, place, open_time, close_time, price, image_url, userid];
+    const saveCardNewsQuery = 'INSERT INTO cardNews (title, place, open_time, close_time, price, image_url, userid, review) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+    const cardNewsValues = [place, place, open_time, close_time, price, image_url, userid, reivew];
 
     connection.query(saveCardNewsQuery, cardNewsValues, (cardNewsErr, cardNewsResult) => {
       if (cardNewsErr) {
