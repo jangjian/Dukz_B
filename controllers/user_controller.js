@@ -510,7 +510,7 @@ exports.saveCardNews = (req, res) => {
     const image_url = req.file ? `/uploads/${req.file.filename}` : null; // Uploaded image URL
 
     const saveCardNewsQuery = 'INSERT INTO cardNews (title, place, open_time, close_time, price, image_url, userid, review) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
-    const cardNewsValues = [place, place, open_time, close_time, price, image_url, userid, reivew];
+    const cardNewsValues = [place, place, open_time, close_time, price, image_url, userid, review];
 
     connection.query(saveCardNewsQuery, cardNewsValues, (cardNewsErr, cardNewsResult) => {
       if (cardNewsErr) {
