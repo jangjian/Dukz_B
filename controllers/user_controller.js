@@ -4,9 +4,10 @@ const multer = require('multer');
 const path = require('path');
 const mysql = require('mysql2');
 const randomstring = require('randomstring');
+const nodemailer = require('nodemailer');
 const connection = mysql.createConnection({
   host: 'localhost',
-  user: 'dukz',
+  user: 'root',
   password: '1011',
   database: 'dukz_db'
 });
@@ -32,7 +33,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage: storage,
   limits: { fileSize: 50 * 1024 * 1024 } // 50MB
-}).array('images', 10);
+}).single('profile_image');
 
 // 회원가입 API(이메일)
 exports.signup = (req, res) => {
@@ -128,22 +129,27 @@ exports.signup5 = (req, res) => {
   // 이미지 업로드 처리
   upload(req, res, function (uploadErr) {
     if (uploadErr instanceof multer.MulterError) {
-      return res.status(500).json({ success: false, message: '이미지 업로드 실패' });
+      return res.status(500).json({ success: false, message: '이미지 업로드 실패', error: uploadErr.message });
     } else if (uploadErr) {
       console.error('Upload Error:', uploadErr);
       return res.status(500).json({ success: false, message: '서버 오류 발생', error: uploadErr.message });
     }
 
     const image_url = req.file ? `/uploads/${req.file.filename}` : null;
-    // 회원가입 정보 업데이트
     const { email } = req.body;
+
+    console.log('Email:', email);
+    console.log('Image URL:', image_url);
+
     const sql = 'UPDATE user SET image_url = ? WHERE email = ?';
     connection.query(sql, [image_url, email], (err, updateResult) => {
       if (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Error updating user information' });
+        console.error('DB Error:', err);
+        res.status(500).json({ error: '사용자 정보 업데이트 오류', errorDetails: err });
         return;
       }
+
+      console.log('DB Update Result:', updateResult);
       res.status(200).json({ success: true, message: 'User registered successfully', image_url });
     });
   });
