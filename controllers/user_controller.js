@@ -203,7 +203,6 @@ exports.signup7 = (req, res) => {
   });
 };
 
-
 // 이메일 인증 코드 요청 API
 exports.certificate = async (req, res) => {
   const { email } = req.body;
@@ -798,7 +797,7 @@ exports.getRecommendedDiaries = (req, res) => {
   });
 };
 
-// 사용자가 선택한 일지 가져오기
+// 사용자의 일지 가져오기
 exports.getUserDiary = (req, res) => {
   const { userid } = req.body;
 
@@ -816,32 +815,64 @@ exports.getUserDiary = (req, res) => {
 
     const userId = userResult[0].id;
 
-      // 3. 선택한 일지의 내용 가져오기
-      const getDiaryContentQuery = 'SELECT * FROM diaryContent WHERE diaryId = ? ORDER BY userId ASC';
-      connection.query(getDiaryContentQuery, [userId], (diaryErr, diaryResult) => {
-        if (diaryErr) {
-          console.error(diaryErr);
-          return res.status(500).json({ error: 'Error retrieving diary content' });
+    // 2. 사용자가 작성한 모든 일지의 ID와 생성일자 가져오기
+    const getUserDiariesQuery = 'SELECT DISTINCT d.diaryId, d.createDate FROM diary d INNER JOIN diaryContent dc ON d.diaryId = dc.diaryId WHERE d.userId = ?';
+    connection.query(getUserDiariesQuery, [userId], (diaryErr, diaryResult) => {
+      if (diaryErr) {
+        console.error(diaryErr);
+        return res.status(500).json({ error: 'Error retrieving user diaries' });
+      }
+
+      if (diaryResult.length === 0) {
+        return res.status(404).json({ error: 'No diaries found for the user' });
+      }
+
+      // diaryResult에서 추출된 diaryId와 createDate 배열 생성
+      const userDiaries = diaryResult.map(row => ({
+        diaryId: row.diaryId,
+        createDate: row.createDate,
+        contents: [] // 각 일지의 내용을 저장할 배열
+      }));
+
+      // diaryId 배열 생성
+      const diaryIds = userDiaries.map(diary => diary.diaryId);
+
+      // 3. 사용자가 작성한 모든 일지의 내용 가져오기
+      const getDiaryContentsQuery = 'SELECT * FROM diaryContent WHERE diaryId IN (?) ORDER BY diaryId ASC';
+      connection.query(getDiaryContentsQuery, [diaryIds], (contentErr, contentResult) => {
+        if (contentErr) {
+          console.error(contentErr);
+          return res.status(500).json({ error: 'Error retrieving diary contents' });
         }
 
-        if (diaryResult.length === 0) {
-          return res.status(404).json({ error: 'No diary content found for the specified diaryId' });
-        }
-
-        const groupedDiaries = diaryResult.reduce((acc, content) => {
-          if (!acc[content.diaryId]) {
-            acc[content.diaryId] = [];
+        // diaryId를 기준으로 각 일지의 내용 그룹화
+        contentResult.forEach(content => {
+          const diaryIndex = userDiaries.findIndex(diary => diary.diaryId === content.diaryId);
+          if (diaryIndex !== -1) {
+            userDiaries[diaryIndex].contents.push({
+              contentId: content.contentId,
+              contentType: content.contentType,
+              content: content.content,
+              align: content.align,
+              imageSrc: content.imageSrc,
+              cardNewsId: content.cardNewsId
+            });
           }
-          acc[content.diaryId].push(content);
-          return acc;
-        }, {});
+        });
 
-        const groupedDiariesArray = Object.values(groupedDiaries);
+        // createDate를 원하는 포맷으로 변환하여 userDiaries에 포함시킴
+        userDiaries.forEach(diary => {
+          const formattedCreateDate = new Date(diary.createDate);
+          diary.createDate = `${formattedCreateDate.getFullYear()}-${String(formattedCreateDate.getMonth() + 1).padStart(2, '0')}-${String(formattedCreateDate.getDate()).padStart(2, '0')} ${String(formattedCreateDate.getHours()).padStart(2, '0')}:${String(formattedCreateDate.getMinutes()).padStart(2, '0')}:${String(formattedCreateDate.getSeconds()).padStart(2, '0')}`;
+        });
 
-        res.status(200).json({ recommendedDiaries: groupedDiariesArray});
+        // 모든 작업이 완료되면 클라이언트에 응답 보내기
+        res.status(200).json({ userDiaries });
+      });
     });
   });
 };
+
 
 // 사용자 이미지 URL 불러오기 API
 exports.getUrl = (req, res) => {
