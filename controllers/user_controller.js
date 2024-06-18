@@ -716,7 +716,7 @@ exports.getDiary = (req, res) => {
 
         const groupedDiariesArray = Object.values(groupedDiaries);
 
-        res.status(200).json({ recommendedDiaries: groupedDiariesArray, name: userName, createDate:createDate });
+        res.status(200).json({ recommendedDiaries: groupedDiariesArray, name: userName, date:createDate });
       });
     });
   });
