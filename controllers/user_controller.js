@@ -714,7 +714,6 @@ exports.getAllDiaries = (req, res) => {
 exports.getDiary = (req, res) => {
   const { diaryId } = req.body;
 
-  // 1. 사용자의 id 및 createDate 가져오기 (createDate 포맷 변경)
   const getUserQuery = 'SELECT userId, DATE_FORMAT(createDate, "%Y-%m-%d %H:%i:%s") AS createDate FROM diary WHERE diaryId = ?';
   connection.query(getUserQuery, [diaryId], (err, userResult) => {
     if (err) {
@@ -727,7 +726,7 @@ exports.getDiary = (req, res) => {
     }
 
     const userId = userResult[0].userId;
-    const createDate = userResult[0].createDate; // 포맷 변경된 createDate
+    const createDate = userResult[0].createDate; 
 
     // 2. 사용자의 이름 가져오기
     const getUserNameQuery = 'SELECT name FROM user WHERE id = ?';
@@ -766,11 +765,15 @@ exports.getDiary = (req, res) => {
         const groupedDiariesArray = Object.values(groupedDiaries);
 
         // API 응답에 createDate를 포함하여 보냄 (원하는 포맷으로 변환)
-        res.status(200).json({ recommendedDiaries: groupedDiariesArray, name: userName, createDate: createDate });
+        const formattedCreateDate = new Date(createDate);
+        const formattedDate = `${formattedCreateDate.getFullYear()}-${String(formattedCreateDate.getMonth() + 1).padStart(2, '0')}-${String(formattedCreateDate.getDate()).padStart(2, '0')} ${String(formattedCreateDate.getHours()).padStart(2, '0')}:${String(formattedCreateDate.getMinutes()).padStart(2, '0')}:${String(formattedCreateDate.getSeconds()).padStart(2, '0')}`;
+
+        res.status(200).json({ recommendedDiaries: groupedDiariesArray, name: userName, createDate: formattedDate });
       });
     });
   });
 };
+
 
 
 // 사용자의 선호하는 장르 기반으로 추천 일지 가져오기
