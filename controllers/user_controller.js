@@ -445,7 +445,7 @@ exports.saveDiary = (req, res) => {
     parsedContents.forEach((content, index) => {
       let imageSrc = null;
       if (content.contentType === 'image' && imageUrls.length > 0) {
-        imageSrc = imageUrls.shift();
+        imageSrc = imageUrls.shift();  // 올바르게 이미지 URL을 할당합니다.
       }
 
       saveContent(content, imageSrc, (contentErr) => {
@@ -465,6 +465,8 @@ exports.saveDiary = (req, res) => {
     });
   });
 };
+
+
 
 // 도우미 함수
 function getUserInfo(userid) {
