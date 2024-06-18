@@ -659,14 +659,63 @@ exports.saveScheduleItem = (req, res) => {
   });
 };
 
+// 모든 일지 가져오기 (createDate 및 내용 포함)
+exports.getAllDiaries = (req, res) => {
+  const getAllDiariesQuery = 'SELECT diaryId, createDate FROM diary ORDER BY diaryId ASC';
+  
+  connection.query(getAllDiariesQuery, async (err, diaryResult) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Error retrieving all diaries' });
+    }
 
+    if (diaryResult.length === 0) {
+      return res.status(404).json({ error: 'No diaries found' });
+    }
+
+    try {
+      // 클라이언트에게 전송할 데이터 생성
+      const formattedDiaries = await Promise.all(diaryResult.map(async (diary) => {
+        const diaryId = diary.diaryId;
+        const createDate = new Date(diary.createDate); // MySQL에서 직접 불러온 createDate를 Date 객체로 변환
+
+        const formattedCreateDate = `${createDate.getFullYear()}-${String(createDate.getMonth() + 1).padStart(2, '0')}-${String(createDate.getDate()).padStart(2, '0')} ${String(createDate.getHours()).padStart(2, '0')}:${String(createDate.getMinutes()).padStart(2, '0')}:${String(createDate.getSeconds()).padStart(2, '0')}`;
+
+        const getDiaryContentQuery = 'SELECT * FROM diaryContent WHERE diaryId = ? ORDER BY diaryId ASC';
+        
+        const contentQueryResult = await new Promise((resolve, reject) => {
+          connection.query(getDiaryContentQuery, [diaryId], (contentErr, contentResult) => {
+            if (contentErr) {
+              reject(contentErr);
+            } else {
+              resolve(contentResult);
+            }
+          });
+        });
+
+        // diaryId와 formattedCreateDate를 포함한 일지 내용 반환
+        return {
+          diaryId: diary.diaryId,
+          createDate: formattedCreateDate,
+          content: contentQueryResult // diaryId에 해당하는 모든 내용
+        };
+      }));
+
+      // 모든 formattedDiaries 작업이 완료되면 클라이언트에게 응답을 보냄
+      res.status(200).json({ diaries: formattedDiaries });
+    } catch (error) {
+      console.error('Error retrieving diary contents:', error);
+      res.status(500).json({ error: 'Error retrieving diary contents' });
+    }
+  });
+};
 
 // 사용자가 선택한 일지 가져오기
 exports.getDiary = (req, res) => {
   const { diaryId } = req.body;
 
-  // 1. 사용자의 id 가져오기
-  const getUserQuery = 'SELECT userId, createDate FROM diary WHERE diaryId = ?';
+  // 1. 사용자의 id 및 createDate 가져오기
+  const getUserQuery = 'SELECT userId, DATE_FORMAT(createDate, "%Y-%m-%d %H:%i:%s") AS createDate FROM diary WHERE diaryId = ?';
   connection.query(getUserQuery, [diaryId], (err, userResult) => {
     if (err) {
       console.error(err);
@@ -716,11 +765,13 @@ exports.getDiary = (req, res) => {
 
         const groupedDiariesArray = Object.values(groupedDiaries);
 
-        res.status(200).json({ recommendedDiaries: groupedDiariesArray, name: userName, date:createDate });
+        // API 응답에 createDate를 포함하여 보냄 (원하는 포맷으로 변환)
+        res.status(200).json({ recommendedDiaries: groupedDiariesArray, name: userName, createDate: createDate });
       });
     });
   });
 };
+
 
 // 사용자의 선호하는 장르 기반으로 추천 일지 가져오기
 exports.getRecommendedDiaries = (req, res) => {
