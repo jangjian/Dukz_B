@@ -714,7 +714,7 @@ exports.getAllDiaries = (req, res) => {
 exports.getDiary = (req, res) => {
   const { diaryId } = req.body;
 
-  // 1. 사용자의 id 및 createDate 가져오기
+  // 1. 사용자의 id 및 createDate 가져오기 (createDate 포맷 변경)
   const getUserQuery = 'SELECT userId, DATE_FORMAT(createDate, "%Y-%m-%d %H:%i:%s") AS createDate FROM diary WHERE diaryId = ?';
   connection.query(getUserQuery, [diaryId], (err, userResult) => {
     if (err) {
@@ -727,7 +727,7 @@ exports.getDiary = (req, res) => {
     }
 
     const userId = userResult[0].userId;
-    const createDate = userResult[0].createDate;
+    const createDate = userResult[0].createDate; // 포맷 변경된 createDate
 
     // 2. 사용자의 이름 가져오기
     const getUserNameQuery = 'SELECT name FROM user WHERE id = ?';
