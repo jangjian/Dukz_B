@@ -158,7 +158,6 @@ exports.signup5 = (req, res) => {
   });
 };
 
-
 // 회원가입 API 6 (생년월일)
 exports.signup6 = (req, res) => {
   const { email, birth } = req.body;
@@ -204,55 +203,6 @@ exports.signup7 = (req, res) => {
   });
 };
 
-// 카드뉴스 불러오기 API
-exports.getCardNews = (req, res) => {
-  const getCardNewsQuery = 'SELECT * FROM cardNews ORDER BY createDate DESC';
-
-  connection.query(getCardNewsQuery, (cardNewsErr, cardNewsResult) => {
-    if (cardNewsErr) {
-      console.error(cardNewsErr);
-      return res.status(500).json({ error: '카드 뉴스를 가져오는 중 오류가 발생했습니다.' });
-    }
-
-    if (cardNewsResult.length === 0) {
-      return res.status(404).json({ error: '카드 뉴스를 찾을 수 없습니다.' });
-    }
-
-    // 모든 카드뉴스를 가져올 때는 배열에 담아서 전송
-    const allCardNewsPromises = cardNewsResult.map(cardNews => {
-      return new Promise((resolve, reject) => {
-        getUserInfo(cardNews.userid)
-          .then(userInfo => {
-            getHashtagsForCardNews(cardNews.cardNewsId)
-              .then((hashtags) => {
-                const cardNewsData = {
-                  cardNews,
-                  userInfo,
-                  hashtags,
-                };
-                resolve(cardNewsData);
-              })
-              .catch((error) => {
-                console.error("Error fetching hashtags:", error);
-                reject(error);
-              });
-          })
-          .catch(error => {
-            console.error(error);
-            reject(error);
-          });
-      });
-    });
-
-    Promise.all(allCardNewsPromises)
-      .then(allCardNews => {
-        res.status(200).json(allCardNews);
-      })
-      .catch(error => {
-        res.status(500).json({ error: '사용자 정보 및 해시태그를 가져오는 중 오류가 발생했습니다.' });
-      });
-  });
-};
 
 // 도우미 함수
 function getUserInfo(userid) {
@@ -315,7 +265,7 @@ exports.saveCardNews = (req, res) => {
     console.log("Image URLs:", image_urls);
     console.log("Hashtags:", hashtags);
 
-    const saveCardNewsQuery = 'INSERT INTO cardnews (place, open_time, close_time, price, image_url, userid, card_review, star) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+    const saveCardNewsQuery = 'INSERT INTO cardNews (place, open_time, close_time, price, image_url, userid, card_review, star) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
     const cardNewsValues = [place, open_time, close_time, price, image_urls.join(','), userid, card_review, star];
 
     connection.query(saveCardNewsQuery, cardNewsValues, (cardNewsErr, cardNewsResult) => {
@@ -774,8 +724,6 @@ exports.getDiary = (req, res) => {
   });
 };
 
-
-
 // 사용자의 선호하는 장르 기반으로 추천 일지 가져오기
 exports.getRecommendedDiaries = (req, res) => {
   const { userid } = req.body;
@@ -921,6 +869,55 @@ exports.getUrl = (req, res) => {
   });
 };
 
+// 카드뉴스 불러오기 API
+exports.getCardNews = (req, res) => {
+  const getCardNewsQuery = 'SELECT * FROM cardNews ORDER BY createDate DESC';
+
+  connection.query(getCardNewsQuery, (cardNewsErr, cardNewsResult) => {
+    if (cardNewsErr) {
+      console.error(cardNewsErr);
+      return res.status(500).json({ error: '카드 뉴스를 가져오는 중 오류가 발생했습니다.' });
+    }
+
+    if (cardNewsResult.length === 0) {
+      return res.status(404).json({ error: '카드 뉴스를 찾을 수 없습니다.' });
+    }
+
+    // 모든 카드뉴스를 가져올 때는 배열에 담아서 전송
+    const allCardNewsPromises = cardNewsResult.map(cardNews => {
+      return new Promise((resolve, reject) => {
+        getUserInfo(cardNews.userid)
+          .then(userInfo => {
+            getHashtagsForCardNews(cardNews.cardNewsId)
+              .then((hashtags) => {
+                const cardNewsData = {
+                  cardNews,
+                  userInfo,
+                  hashtags,
+                };
+                resolve(cardNewsData);
+              })
+              .catch((error) => {
+                console.error("Error fetching hashtags:", error);
+                reject(error);
+              });
+          })
+          .catch(error => {
+            console.error(error);
+            reject(error);
+          });
+      });
+    });
+
+    Promise.all(allCardNewsPromises)
+      .then(allCardNews => {
+        res.status(200).json(allCardNews);
+      })
+      .catch(error => {
+        res.status(500).json({ error: '사용자 정보 및 해시태그를 가져오는 중 오류가 발생했습니다.' });
+      });
+  });
+};
 
 
 // ID 변경 API
