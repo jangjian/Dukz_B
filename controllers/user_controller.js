@@ -666,7 +666,7 @@ exports.getDiary = (req, res) => {
   const { diaryId } = req.body;
 
   // 1. 사용자의 id 가져오기
-  const getUserQuery = 'SELECT userId FROM diary WHERE diaryId = ?';
+  const getUserQuery = 'SELECT userId, createDate FROM diary WHERE diaryId = ?';
   connection.query(getUserQuery, [diaryId], (err, userResult) => {
     if (err) {
       console.error(err);
@@ -678,6 +678,7 @@ exports.getDiary = (req, res) => {
     }
 
     const userId = userResult[0].userId;
+    const createDate = userResult[0].createDate;
 
     // 2. 사용자의 이름 가져오기
     const getUserNameQuery = 'SELECT name FROM user WHERE id = ?';
@@ -715,7 +716,7 @@ exports.getDiary = (req, res) => {
 
         const groupedDiariesArray = Object.values(groupedDiaries);
 
-        res.status(200).json({ recommendedDiaries: groupedDiariesArray, name: userName });
+        res.status(200).json({ recommendedDiaries: groupedDiariesArray, name: userName, createDate:createDate });
       });
     });
   });
