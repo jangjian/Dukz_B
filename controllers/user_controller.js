@@ -35,6 +35,7 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 } // 50MB
 }).array('images', 10);
 
+
 // 회원가입 API(이메일)
 exports.signup = (req, res) => {
   const { email } = req.body;
@@ -135,14 +136,16 @@ exports.signup5 = (req, res) => {
       return res.status(500).json({ success: false, message: '서버 오류 발생', error: uploadErr.message });
     }
 
-    const image_url = req.file ? `/uploads/${req.file.filename}` : null;
+    const image_urls = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
     const { email } = req.body;
 
     console.log('Email:', email);
-    console.log('Image URL:', image_url);
+    console.log('Image URLs:', image_urls);
+
+    const imageUrlString = image_urls.join(',');
 
     const sql = 'UPDATE user SET image_url = ? WHERE email = ?';
-    connection.query(sql, [image_url, email], (err, updateResult) => {
+    connection.query(sql, [imageUrlString, email], (err, updateResult) => {
       if (err) {
         console.error('DB Error:', err);
         res.status(500).json({ error: '사용자 정보 업데이트 오류', errorDetails: err });
@@ -150,10 +153,11 @@ exports.signup5 = (req, res) => {
       }
 
       console.log('DB Update Result:', updateResult);
-      res.status(200).json({ success: true, message: 'User registered successfully', image_url });
+      res.status(200).json({ success: true, message: 'User registered successfully', image_urls });
     });
   });
 };
+
 
 // 회원가입 API 6 (생년월일)
 exports.signup6 = (req, res) => {
@@ -199,6 +203,164 @@ exports.signup7 = (req, res) => {
     });
   });
 };
+
+// 카드뉴스 불러오기 API
+exports.getCardNews = (req, res) => {
+  const getCardNewsQuery = 'SELECT * FROM cardNews ORDER BY createDate DESC';
+
+  connection.query(getCardNewsQuery, (cardNewsErr, cardNewsResult) => {
+    if (cardNewsErr) {
+      console.error(cardNewsErr);
+      return res.status(500).json({ error: '카드 뉴스를 가져오는 중 오류가 발생했습니다.' });
+    }
+
+    if (cardNewsResult.length === 0) {
+      return res.status(404).json({ error: '카드 뉴스를 찾을 수 없습니다.' });
+    }
+
+    // 모든 카드뉴스를 가져올 때는 배열에 담아서 전송
+    const allCardNewsPromises = cardNewsResult.map(cardNews => {
+      return new Promise((resolve, reject) => {
+        getUserInfo(cardNews.userid)
+          .then(userInfo => {
+            getHashtagsForCardNews(cardNews.cardNewsId)
+              .then((hashtags) => {
+                const cardNewsData = {
+                  cardNews,
+                  userInfo,
+                  hashtags,
+                };
+                resolve(cardNewsData);
+              })
+              .catch((error) => {
+                console.error("Error fetching hashtags:", error);
+                reject(error);
+              });
+          })
+          .catch(error => {
+            console.error(error);
+            reject(error);
+          });
+      });
+    });
+
+    Promise.all(allCardNewsPromises)
+      .then(allCardNews => {
+        res.status(200).json(allCardNews);
+      })
+      .catch(error => {
+        res.status(500).json({ error: '사용자 정보 및 해시태그를 가져오는 중 오류가 발생했습니다.' });
+      });
+  });
+};
+
+// 도우미 함수
+function getUserInfo(userid) {
+  return new Promise((resolve, reject) => {
+    const getUserInfoQuery = 'SELECT * FROM user WHERE userid = ?';
+
+    connection.query(getUserInfoQuery, [userid], (userErr, userResult) => {
+      if (userErr) {
+        reject(userErr);
+      }
+
+      if (userResult.length === 0) {
+        reject('사용자를 찾을 수 없습니다.');
+      }
+
+      const userInfo = {
+        nickname: userResult[0].name,
+        profileImage: userResult[0].image_url,
+      };
+
+      resolve(userInfo);
+    });
+  });
+}
+
+// 도우미 함수: 카드뉴스에 연결된 해시태그 불러오기
+function getHashtagsForCardNews(cardNewsId) {
+  return new Promise((resolve, reject) => {
+    const getHashtagsQuery = `
+      SELECT tag.hashtag
+      FROM cardNewsHashtags
+      JOIN tag ON cardNewsHashtags.hashtagId = tag.tagid
+      WHERE cardNewsHashtags.cardNewsId = ?;
+    `;
+
+    connection.query(getHashtagsQuery, [cardNewsId], (hashtagsErr, hashtagsResult) => {
+      if (hashtagsErr) {
+        reject(hashtagsErr);
+        return;
+      }
+
+      const hashtags = hashtagsResult.map(tag => tag.hashtag);
+
+      resolve(hashtags);
+    });
+  });
+}
+
+// 카드뉴스 저장 API
+exports.saveCardNews = (req, res) => {
+  upload(req, res, function (uploadErr) {
+    if (uploadErr) {
+      console.error('Upload Error:', uploadErr);
+      return res.status(500).json({ error: 'Error uploading image', details: uploadErr.message });
+    }
+    
+    const { place, open_time, close_time, price, userid, card_review, star, hashtags } = req.body;
+    const image_urls = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
+
+    console.log("Image URLs:", image_urls);
+    console.log("Hashtags:", hashtags);
+
+    const saveCardNewsQuery = 'INSERT INTO cardnews (place, open_time, close_time, price, image_url, userid, card_review, star) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+    const cardNewsValues = [place, open_time, close_time, price, image_urls.join(','), userid, card_review, star];
+
+    connection.query(saveCardNewsQuery, cardNewsValues, (cardNewsErr, cardNewsResult) => {
+        if (cardNewsErr) {
+            console.error(cardNewsErr);
+            return res.status(500).json({ error: 'Error saving card news' });
+        }
+
+        const cardNewsId = cardNewsResult.insertId;
+        const hashtagArray = Array.isArray(hashtags) ? hashtags : JSON.parse(hashtags); // Parse JSON string to array
+
+        const saveHashtags = (tag, callback) => {
+            if (typeof tag !== 'string' || tag.trim().length === 0) {
+                return callback(null); // Skip invalid tags
+            }
+
+            const insertTagQuery = 'INSERT INTO tag (hashtag) VALUES (?) ON DUPLICATE KEY UPDATE tagid=LAST_INSERT_ID(tagid)';
+            connection.query(insertTagQuery, [tag], (tagErr, tagResult) => {
+                if (tagErr) return callback(tagErr);
+                const tagId = tagResult.insertId;
+
+                const insertCardNewsHashtagQuery = 'INSERT INTO cardnewshashtags (cardNewsId, hashtagId) VALUES (?, ?)';
+                connection.query(insertCardNewsHashtagQuery, [cardNewsId, tagId], callback);
+            });
+        };
+
+        let completed = 0;
+        const total = Math.min(hashtagArray.length, 3); // Ensure max 3 hashtags
+
+        for (let i = 0; i < total; i++) {
+            saveHashtags(hashtagArray[i], (hashtagErr) => {
+                if (hashtagErr) {
+                    console.error('Error saving hashtag:', hashtagErr);
+                    return res.status(500).json({ error: 'Error saving hashtags', details: hashtagErr.message });
+                }
+                completed++;
+                if (completed === total) {
+                    res.status(200).json({ message: 'Card news saved successfully with hashtags', cardNewsId });
+                }
+            });
+        }
+    });
+  });
+};
+
 
 // 이메일 인증 코드 요청 API
 exports.certificate = async (req, res) => {
@@ -497,34 +659,7 @@ exports.saveScheduleItem = (req, res) => {
   });
 };
 
-// 카드뉴스 저장 API
-exports.saveCardNews = (req, res) => {
-  upload(req, res, function (err) {
-    if (err instanceof multer.MulterError) {
-      return res.status(500).json({ error: 'Image upload failed' });
-    } else if (err) {
-      return res.status(500).json({ error: 'Server error', details: err.message });
-    }
 
-    const {place, open_time, close_time, price, userid, review, star } = req.body;
-    const image_url = req.file ? `/uploads/${req.file.filename}` : null; // Uploaded image URL
-
-    const saveCardNewsQuery = 'INSERT INTO cardNews (title, place, open_time, close_time, price, image_url, userid, review, star) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
-    const cardNewsValues = [place, place, open_time, close_time, price, image_url, userid, review, star];
-
-    connection.query(saveCardNewsQuery, cardNewsValues, (cardNewsErr, cardNewsResult) => {
-      if (cardNewsErr) {
-        console.error(cardNewsErr);
-        return res.status(500).json({ error: 'Error saving card news' });
-      }
-
-      const cardNewsId = cardNewsResult.insertId;
-
-      // Respond with success message and cardNewsId
-      res.status(200).json({ message: 'Card news saved successfully', cardNewsId });
-    });
-  });
-};
 
 // 사용자가 선택한 일지 가져오기
 exports.getDiary = (req, res) => {
@@ -731,102 +866,7 @@ exports.getUrl = (req, res) => {
   });
 };
 
-// 카드뉴스 불러오기 API
-exports.getCardNews = (req, res) => {
-  const getCardNewsQuery = 'SELECT * FROM cardNews ORDER BY createDate DESC';
 
-  connection.query(getCardNewsQuery, (cardNewsErr, cardNewsResult) => {
-    if (cardNewsErr) {
-      console.error(cardNewsErr);
-      return res.status(500).json({ error: '카드 뉴스를 가져오는 중 오류가 발생했습니다.' });
-    }
-
-    if (cardNewsResult.length === 0) {
-      return res.status(404).json({ error: '카드 뉴스를 찾을 수 없습니다.' });
-    }
-
-    // 모든 카드뉴스를 가져올 때는 배열에 담아서 전송
-    const allCardNewsPromises = cardNewsResult.map(cardNews => {
-      return new Promise((resolve, reject) => {
-        getUserInfo(cardNews.userid)
-          .then(userInfo => {
-            getHashtagsForCardNews(cardNews.cardNewsId)
-              .then((hashtags) => {
-                const cardNewsData = {
-                  cardNews,
-                  userInfo,
-                  hashtags,
-                };
-                resolve(cardNewsData);
-              })
-              .catch((error) => {
-                console.error("Error fetching hashtags:", error);
-                reject(error);
-              });
-          })
-          .catch(error => {
-            console.error(error);
-            reject(error);
-          });
-      });
-    });
-
-    Promise.all(allCardNewsPromises)
-      .then(allCardNews => {
-        res.status(200).json(allCardNews);
-      })
-      .catch(error => {
-        res.status(500).json({ error: '사용자 정보 및 해시태그를 가져오는 중 오류가 발생했습니다.' });
-      });
-  });
-};
-
-// 도우미 함수
-function getUserInfo(userid) {
-  return new Promise((resolve, reject) => {
-    const getUserInfoQuery = 'SELECT * FROM user WHERE userid = ?';
-
-    connection.query(getUserInfoQuery, [userid], (userErr, userResult) => {
-      if (userErr) {
-        reject(userErr);
-      }
-
-      if (userResult.length === 0) {
-        reject('사용자를 찾을 수 없습니다.');
-      }
-
-      const userInfo = {
-        nickname: userResult[0].name,
-        profileImage: userResult[0].image_url,
-      };
-
-      resolve(userInfo);
-    });
-  });
-}
-
-// 도우미 함수: 카드뉴스에 연결된 해시태그 불러오기
-function getHashtagsForCardNews(cardNewsId) {
-  return new Promise((resolve, reject) => {
-    const getHashtagsQuery = `
-      SELECT tag.hashtag
-      FROM cardNewsHashtags
-      JOIN tag ON cardNewsHashtags.hashtagId = tag.tagid
-      WHERE cardNewsHashtags.cardNewsId = ?;
-    `;
-
-    connection.query(getHashtagsQuery, [cardNewsId], (hashtagsErr, hashtagsResult) => {
-      if (hashtagsErr) {
-        reject(hashtagsErr);
-        return;
-      }
-
-      const hashtags = hashtagsResult.map(tag => tag.hashtag);
-
-      resolve(hashtags);
-    });
-  });
-}
 
 // ID 변경 API
 exports.changeUserId = (req, res) => {
