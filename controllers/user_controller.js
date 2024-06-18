@@ -265,8 +265,8 @@ exports.saveCardNews = (req, res) => {
     console.log("Image URLs:", image_urls);
     console.log("Hashtags:", hashtags);
 
-    const saveCardNewsQuery = 'INSERT INTO cardNews (place, open_time, close_time, price, image_url, userid, card_review, star) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
-    const cardNewsValues = [place, open_time, close_time, price, image_urls.join(','), userid, card_review, star];
+    const saveCardNewsQuery = 'INSERT INTO cardNews (title, place, open_time, close_time, price, image_url, userid, card_review, star) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    const cardNewsValues = [place, place, open_time, close_time, price, image_urls.join(','), userid, card_review, star];
 
     connection.query(saveCardNewsQuery, cardNewsValues, (cardNewsErr, cardNewsResult) => {
         if (cardNewsErr) {
