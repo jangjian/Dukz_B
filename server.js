@@ -6,6 +6,7 @@ const PORT = 3000;
 const path = require('path');
 const userRoutes = require('./routes/user_route.js');
 
+app.use(express.static('public'));
 app.use(cors());
 app.use(bodyParser.json())
 app.use('/user', userRoutes);

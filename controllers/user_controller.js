@@ -571,8 +571,7 @@ exports.saveCardNews = (req, res) => {
         };
 
         let completed = 0;
-        const total = Math.min(hashtagArray.length, 3); // Ensure max 3 hashtags
-
+        const total = Math.min(hashtagArray.length, 3);
         for (let i = 0; i < total; i++) {
             saveHashtags(hashtagArray[i], (hashtagErr) => {
                 if (hashtagErr) {
@@ -583,12 +582,11 @@ exports.saveCardNews = (req, res) => {
                 if (completed === total) {
                     res.status(200).json({ message: 'Card news saved successfully with hashtags', cardNewsId });
                 }
-            });
+            })
         }
     });
   });
 };
-
 
 // 스케줄 아이템 저장 API
 exports.saveScheduleItem = (req, res) => {
