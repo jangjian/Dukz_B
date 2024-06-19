@@ -203,6 +203,33 @@ exports.signup7 = (req, res) => {
   });
 };
 
+// 사용자 정보 조회 API
+exports.getUserInfo = (req, res) => {
+  const {userid} =req.body;
+
+  const getUserInfoSql = 'SELECT * FROM user WHERE userid = ?';
+  connection.query(getUserInfoSql, [userid], (err, result) => {
+      if (err) {
+          console.error('Error fetching user info:', err);
+          return res.status(500).json({ error: 'Error fetching user info' });
+      }
+
+      if (result.length === 0) {
+          return res.status(404).json({ error: 'User not found' });
+      }
+
+      // 사용자 정보를 클라이언트에 반환합니다.
+      const userInfo = {
+          email: result[0].email,
+          userid: result[0].userid,
+          name: result[0].name,
+          image_url: result[0].image_url,
+      };
+
+      res.status(200).json(userInfo);
+  });
+};
+
 // 이메일 인증 코드 요청 API
 exports.certificate = async (req, res) => {
   const { email } = req.body;
@@ -515,62 +542,63 @@ function getHashtagsForCardNews(cardNewsId) {
 
 // 카드뉴스 저장 API
 exports.saveCardNews = (req, res) => {
-  upload(req, res, function (uploadErr) {
+  upload(req, res, function(uploadErr) {
     if (uploadErr) {
       console.error('Upload Error:', uploadErr);
       return res.status(500).json({ error: 'Error uploading image', details: uploadErr.message });
     }
-    
+
     const { place, open_time, close_time, price, userid, card_review, star, hashtags } = req.body;
     const image_urls = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
 
     console.log("Image URLs:", image_urls);
     console.log("Hashtags:", hashtags);
 
-    const saveCardNewsQuery = 'INSERT INTO cardNews (title, place, open_time, close_time, price, image_url, userid, card_review, star) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
-    const cardNewsValues = [place, place, open_time, close_time, price, image_urls.join(','), userid, card_review, star];
+    const saveCardNewsQuery = 'INSERT INTO cardNews (place, open_time, close_time, price, image_url, userid, card_review, star) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+    const cardNewsValues = [place, open_time, close_time, price, image_urls.join(','), userid, card_review, star];
 
     connection.query(saveCardNewsQuery, cardNewsValues, (cardNewsErr, cardNewsResult) => {
-        if (cardNewsErr) {
-            console.error(cardNewsErr);
-            return res.status(500).json({ error: 'Error saving card news' });
+      if (cardNewsErr) {
+        console.error('Error saving card news:', cardNewsErr);
+        return res.status(500).json({ error: 'Error saving card news' });
+      }
+
+      const cardNewsId = cardNewsResult.insertId;
+      const hashtagArray = Array.isArray(hashtags) ? hashtags : JSON.parse(hashtags); // Parse JSON string to array
+
+      const saveHashtags = (tag, callback) => {
+        if (typeof tag !== 'string' || tag.trim().length === 0) {
+          return callback(null); // Skip invalid tags
         }
 
-        const cardNewsId = cardNewsResult.insertId;
-        const hashtagArray = Array.isArray(hashtags) ? hashtags : JSON.parse(hashtags); // Parse JSON string to array
+        const insertTagQuery = 'INSERT INTO tag (hashtag) VALUES (?) ON DUPLICATE KEY UPDATE tagid=LAST_INSERT_ID(tagid)';
+        connection.query(insertTagQuery, [tag], (tagErr, tagResult) => {
+          if (tagErr) return callback(tagErr);
+          const tagId = tagResult.insertId;
 
-        const saveHashtags = (tag, callback) => {
-            if (typeof tag !== 'string' || tag.trim().length === 0) {
-                return callback(null); // Skip invalid tags
-            }
+          const insertCardNewsHashtagQuery = 'INSERT INTO cardNewsHashtags (cardNewsId, hashtagId) VALUES (?, ?)';
+          connection.query(insertCardNewsHashtagQuery, [cardNewsId, tagId], callback);
+        });
+      };
 
-            const insertTagQuery = 'INSERT INTO tag (hashtag) VALUES (?) ON DUPLICATE KEY UPDATE tagid=LAST_INSERT_ID(tagid)';
-            connection.query(insertTagQuery, [tag], (tagErr, tagResult) => {
-                if (tagErr) return callback(tagErr);
-                const tagId = tagResult.insertId;
-
-                const insertCardNewsHashtagQuery = 'INSERT INTO cardNewsHashtags (cardNewsId, hashtagId) VALUES (?, ?)';
-                connection.query(insertCardNewsHashtagQuery, [cardNewsId, tagId], callback);
-            });
-        };
-
-        let completed = 0;
-        const total = Math.min(hashtagArray.length, 3);
-        for (let i = 0; i < total; i++) {
-            saveHashtags(hashtagArray[i], (hashtagErr) => {
-                if (hashtagErr) {
-                    console.error('Error saving hashtag:', hashtagErr);
-                    return res.status(500).json({ error: 'Error saving hashtags', details: hashtagErr.message });
-                }
-                completed++;
-                if (completed === total) {
-                    res.status(200).json({ message: 'Card news saved successfully with hashtags', cardNewsId });
-                }
-            })
-        }
+      let completed = 0;
+      const total = Math.min(hashtagArray.length, 3);
+      for (let i = 0; i < total; i++) {
+        saveHashtags(hashtagArray[i], (hashtagErr) => {
+          if (hashtagErr) {
+            console.error('Error saving hashtag:', hashtagErr);
+            return res.status(500).json({ error: 'Error saving hashtags', details: hashtagErr.message });
+          }
+          completed++;
+          if (completed === total) {
+            res.status(200).json({ message: 'Card news saved successfully with hashtags', cardNewsId });
+          }
+        });
+      }
     });
   });
 };
+
 
 // 스케줄 아이템 저장 API
 exports.saveScheduleItem = (req, res) => {
@@ -1137,6 +1165,5 @@ exports.changeUserName = (req, res) => {
     res.status(200).json({ message: '사용자 닉네임이 성공적으로 변경되었습니다.' });
   });
 };
-
 
 
