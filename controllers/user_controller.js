@@ -13,7 +13,6 @@ const connection = mysql.createConnection({
   database: 'dukz_db'
 });
 
-
 const app = express();
 
 // body-parser를 사용하여 페이로드 크기 제한을 늘립니다.
@@ -247,22 +246,19 @@ exports.signup4 = (req, res) => {
 
 // 회원가입 및 이미지 업로드 (API)
 exports.signup5 = (req, res) => {
-  // 이미지 업로드 처리
   upload(req, res, function (uploadErr) {
-    if (uploadErr instanceof multer.MulterError) {
-      return res.status(500).json({ success: false, message: '이미지 업로드 실패', error: uploadErr.message });
-    } else if (uploadErr) {
+    if (uploadErr) {
       console.error('Upload Error:', uploadErr);
-      return res.status(500).json({ success: false, message: '서버 오류 발생', error: uploadErr.message });
+      return res.status(500).json({ error: 'Error uploading image', details: uploadErr.message });
     }
 
-    const image_urls = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
+    const imageUrls = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
     const { email } = req.body;
 
     console.log('Email:', email);
-    console.log('Image URLs:', image_urls);
+    console.log('Image URLs:', imageUrls);
 
-    const imageUrlString = image_urls.join(',');
+    const imageUrlString = imageUrls.join(',');
 
     const sql = 'UPDATE user SET image_url = ? WHERE email = ?';
     connection.query(sql, [imageUrlString, email], (err, updateResult) => {
@@ -273,10 +269,11 @@ exports.signup5 = (req, res) => {
       }
 
       console.log('DB Update Result:', updateResult);
-      res.status(200).json({ success: true, message: 'User registered successfully', image_urls });
+      res.status(200).json({ success: true, message: 'User image updated successfully', image_urls: imageUrls });
     });
   });
 };
+
 
 // 회원가입 API 6 (생년월일)
 exports.signup6 = (req, res) => {
@@ -701,7 +698,6 @@ exports.getAllDiaries = (req, res) => {
   });
 };
 
-
 // cardNewsId를 사용하여 cardNews의 내용을 가져오는 함수 정의
 async function getCardNewsContent(cardNewsId) {
   return new Promise((resolve, reject) => {
@@ -1116,8 +1112,6 @@ exports.getCardNews = (req, res) => {
   });
 };
 
-
-
 exports.saveSchedule = (req, res) => {
   const { userId, dayId, title } = req.body;
 
@@ -1190,49 +1184,28 @@ exports.passwordTest = (req, res) => {
 
 // 사용자 이미지 변경 API
 exports.changeUserImage = (req, res) => {
-  // 이미지 업로드 처리
-  upload(req, res, function (uploadErr) {
-    if (uploadErr instanceof multer.MulterError) {
-      return res.status(500).json({ success: false, message: '이미지 업로드 실패' });
-    } else if (uploadErr) {
+  upload(req, res, function(uploadErr) {
+    if (uploadErr) {
       console.error('Upload Error:', uploadErr);
-      return res.status(500).json({ success: false, message: '서버 오류 발생', error: uploadErr.message });
+      return res.status(500).json({ error: 'Error uploading image', details: uploadErr.message });
     }
 
-    const newImageUrl = req.file ? `/uploads/${req.file.filename}` : null;
-
-    // 기존 이미지를 가져오기 위한 쿼리
+    const imageUrls = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
     const { userid } = req.body;
-    const getOldImageUrlQuery = 'SELECT image_url FROM user WHERE userid = ?';
-    connection.query(getOldImageUrlQuery, [userid], (err, result) => {
-      if (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Error retrieving old image URL' });
+
+    console.log(userid, imageUrls);
+
+    const imageUrlString = imageUrls.join(',');
+
+    const updateUserInfoQuery = 'UPDATE user SET image_url = ? WHERE userid = ?';
+    connection.query(updateUserInfoQuery, [imageUrlString, userid], (updateErr, updateResult) => {
+      if (updateErr) {
+        console.error(updateErr);
+        res.status(500).json({ error: 'Error updating user image' });
         return;
       }
 
-      const oldImageUrl = result[0].image_url;
-
-      const updateUserInfoQuery = 'UPDATE user SET image_url = ? WHERE userid = ?';
-      connection.query(updateUserInfoQuery, [newImageUrl, userid], (updateErr, updateResult) => {
-        if (updateErr) {
-          console.error(updateErr);
-          res.status(500).json({ error: 'Error updating user image' });
-          return;
-        }
-
-        // 이전 이미지 삭제
-        if (oldImageUrl && oldImageUrl !== newImageUrl) {
-          const oldImagePath = path.join(__dirname, oldImageUrl);
-          fs.unlink(oldImagePath, (unlinkErr) => {
-            if (unlinkErr) {
-              console.error('Error deleting old image:', unlinkErr);
-            }
-          });
-        }
-
-        res.status(200).json({ success: true, message: 'User image updated successfully', newImageUrl });
-      });
+      res.status(200).json({ success: true, message: 'User image updated successfully', imageUrlString });
     });
   });
 };
