@@ -5,6 +5,7 @@ const path = require('path');
 const mysql = require('mysql2');
 const randomstring = require('randomstring');
 const nodemailer = require('nodemailer');
+const cors = require('cors');
 const connection = mysql.createConnection({
   host: 'localhost',
   user: 'root',
@@ -35,7 +36,126 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 } // 50MB
 }).array('images', 10);
 
+// 일지 내용을 저장하는 API
+exports.saveDiary = (req, res) => {
+  upload(req, res, function (uploadErr) {
+    if (uploadErr) {
+      console.error('Upload Error:', uploadErr);
+      return res.status(500).json({ error: 'Error uploading image', details: uploadErr.message });
+    }
+    
+    const imageUrls = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
+    const { diaryId, contents } = req.body;
+    let parsedContents;
+    try {
+      parsedContents = JSON.parse(contents);
+      if (!Array.isArray(parsedContents)) {
+        throw new Error('Parsed contents is not an array');
+      }
+    } catch (parseErr) {
+      console.error('Error parsing contents:', parseErr);
+      return res.status(400).json({ error: 'Invalid contents format' });
+    }
 
+    const saveContent = (content, imageSrc, callback) => {
+      const { contentType, contentText, align, cardNewsId } = content;
+
+      const saveContentQuery = 'INSERT INTO diaryContent (diaryId, contentType, content, align, imageSrc, cardNewsId) VALUES (?, ?, ?, ?, ?, ?)';
+      const contentValues = [diaryId, contentType, contentText, align, imageSrc, cardNewsId];
+
+      connection.query(saveContentQuery, contentValues, (err, results) => {
+        if (err) {
+          console.error('Error executing query:', err);
+          if (err.code !== 'ER_DATA_TOO_LONG') {
+            return callback(err);
+          }
+        }
+        callback(null, results);
+      });
+    };
+
+    let remaining = parsedContents.length;
+    const errors = [];
+
+    parsedContents.forEach((content, index) => {
+      let imageSrc = null;
+      if (content.contentType === 'image' && imageUrls.length > 0) {
+        imageSrc = imageUrls.shift();  // 올바르게 이미지 URL을 할당합니다.
+      }
+
+      saveContent(content, imageSrc, (contentErr) => {
+        if (contentErr) {
+          errors.push(contentErr);
+        }
+        remaining -= 1;
+        if (remaining === 0) {
+          if (errors.length > 0) {
+            console.error(errors);
+            res.status(500).json({ error: 'Error saving diary content', details: errors });
+          } else {
+            res.status(200).json({ message: 'Diary content saved successfully' });
+          }
+        }
+      });
+    });
+  });
+};
+
+// 카드뉴스 저장 API
+exports.saveCardNews = (req, res) => {
+  upload(req, res, function(uploadErr) {
+    if (uploadErr) {
+      console.error('Upload Error:', uploadErr);
+      return res.status(500).json({ error: 'Error uploading image', details: uploadErr.message });
+    }
+
+    const { place, open_time, close_time, price, userid, card_review, star, hashtags } = req.body;
+    const image_urls = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
+
+    const saveCardNewsQuery = 'INSERT INTO cardNews (title, place, open_time, close_time, price, image_url, userid, card_review, star) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    const cardNewsValues = [place, place, open_time, close_time, price, image_urls.join(','), userid, card_review, star];
+
+    connection.query(saveCardNewsQuery, cardNewsValues, (cardNewsErr, cardNewsResult) => {
+      if (cardNewsErr) {
+        console.error('Error saving card news:', cardNewsErr);
+        return res.status(500).json({ error: 'Error saving card news' });
+      }
+
+      const cardNewsId = cardNewsResult.insertId;
+      const hashtagArray = Array.isArray(hashtags) ? hashtags : JSON.parse(hashtags); // Parse JSON string to array
+
+      const saveHashtags = (tag, callback) => {
+        if (typeof tag !== 'string' || tag.trim().length === 0) {
+          return callback(null); // Skip invalid tags
+        }
+
+        const insertTagQuery = 'INSERT INTO tag (hashtag) VALUES (?) ON DUPLICATE KEY UPDATE tagid=LAST_INSERT_ID(tagid)';
+        connection.query(insertTagQuery, [tag], (tagErr, tagResult) => {
+          if (tagErr) return callback(tagErr);
+          const tagId = tagResult.insertId;
+
+          const insertCardNewsHashtagQuery = 'INSERT INTO cardNewsHashtags (cardNewsId, hashtagId) VALUES (?, ?)';
+          connection.query(insertCardNewsHashtagQuery, [cardNewsId, tagId], callback);
+        });
+      };
+
+      let completed = 0;
+      const total = Math.min(hashtagArray.length, 3);
+      for (let i = 0; i < total; i++) {
+        saveHashtags(hashtagArray[i], (hashtagErr) => {
+          if (hashtagErr) {
+            console.error('Error saving hashtag:', hashtagErr);
+            return res.status(500).json({ error: 'Error saving hashtags', details: hashtagErr.message });
+          }
+          completed++;
+          if (completed === total) {
+            res.status(200).json({ message: 'Card news saved successfully with hashtags', cardNewsId });
+          }
+        });
+      }
+    });
+  });
+};
 // 회원가입 API(이메일)
 exports.signup = (req, res) => {
   const { email } = req.body;
@@ -427,71 +547,7 @@ exports.saveGenre = (req, res) => {
   });
 };
 
-// 일지 내용을 저장하는 API
-exports.saveDiary = (req, res) => {
-  upload(req, res, function (uploadErr) {
-    if (uploadErr) {
-      console.error('Upload Error:', uploadErr);
-      return res.status(500).json({ error: 'Error uploading image', details: uploadErr.message });
-    }
 
-    const imageUrls = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
-    const { diaryId, contents } = req.body;
-
-    let parsedContents;
-    try {
-      parsedContents = JSON.parse(contents);
-      if (!Array.isArray(parsedContents)) {
-        throw new Error('Parsed contents is not an array');
-      }
-    } catch (parseErr) {
-      console.error('Error parsing contents:', parseErr);
-      return res.status(400).json({ error: 'Invalid contents format' });
-    }
-
-    const saveContent = (content, imageSrc, callback) => {
-      const { contentType, contentText, align, cardNewsId } = content;
-
-      const saveContentQuery = 'INSERT INTO diaryContent (diaryId, contentType, content, align, imageSrc, cardNewsId) VALUES (?, ?, ?, ?, ?, ?)';
-      const contentValues = [diaryId, contentType, contentText, align, imageSrc, cardNewsId];
-
-      connection.query(saveContentQuery, contentValues, (err, results) => {
-        if (err) {
-          console.error('Error executing query:', err);
-          if (err.code !== 'ER_DATA_TOO_LONG') {
-            return callback(err);
-          }
-        }
-        callback(null, results);
-      });
-    };
-
-    let remaining = parsedContents.length;
-    const errors = [];
-
-    parsedContents.forEach((content, index) => {
-      let imageSrc = null;
-      if (content.contentType === 'image' && imageUrls.length > 0) {
-        imageSrc = imageUrls.shift();  // 올바르게 이미지 URL을 할당합니다.
-      }
-
-      saveContent(content, imageSrc, (contentErr) => {
-        if (contentErr) {
-          errors.push(contentErr);
-        }
-        remaining -= 1;
-        if (remaining === 0) {
-          if (errors.length > 0) {
-            console.error(errors);
-            res.status(500).json({ error: 'Error saving diary content', details: errors });
-          } else {
-            res.status(200).json({ message: 'Diary content saved successfully' });
-          }
-        }
-      });
-    });
-  });
-};
 
 // 도우미 함수
 function getUserInfo(userid) {
@@ -540,64 +596,6 @@ function getHashtagsForCardNews(cardNewsId) {
   });
 }
 
-// 카드뉴스 저장 API
-exports.saveCardNews = (req, res) => {
-  upload(req, res, function(uploadErr) {
-    if (uploadErr) {
-      console.error('Upload Error:', uploadErr);
-      return res.status(500).json({ error: 'Error uploading image', details: uploadErr.message });
-    }
-
-    const { place, open_time, close_time, price, userid, card_review, star, hashtags } = req.body;
-    const image_urls = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
-
-    console.log("Image URLs:", image_urls);
-    console.log("Hashtags:", hashtags);
-
-    const saveCardNewsQuery = 'INSERT INTO cardNews (place, open_time, close_time, price, image_url, userid, card_review, star) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
-    const cardNewsValues = [place, open_time, close_time, price, image_urls.join(','), userid, card_review, star];
-
-    connection.query(saveCardNewsQuery, cardNewsValues, (cardNewsErr, cardNewsResult) => {
-      if (cardNewsErr) {
-        console.error('Error saving card news:', cardNewsErr);
-        return res.status(500).json({ error: 'Error saving card news' });
-      }
-
-      const cardNewsId = cardNewsResult.insertId;
-      const hashtagArray = Array.isArray(hashtags) ? hashtags : JSON.parse(hashtags); // Parse JSON string to array
-
-      const saveHashtags = (tag, callback) => {
-        if (typeof tag !== 'string' || tag.trim().length === 0) {
-          return callback(null); // Skip invalid tags
-        }
-
-        const insertTagQuery = 'INSERT INTO tag (hashtag) VALUES (?) ON DUPLICATE KEY UPDATE tagid=LAST_INSERT_ID(tagid)';
-        connection.query(insertTagQuery, [tag], (tagErr, tagResult) => {
-          if (tagErr) return callback(tagErr);
-          const tagId = tagResult.insertId;
-
-          const insertCardNewsHashtagQuery = 'INSERT INTO cardNewsHashtags (cardNewsId, hashtagId) VALUES (?, ?)';
-          connection.query(insertCardNewsHashtagQuery, [cardNewsId, tagId], callback);
-        });
-      };
-
-      let completed = 0;
-      const total = Math.min(hashtagArray.length, 3);
-      for (let i = 0; i < total; i++) {
-        saveHashtags(hashtagArray[i], (hashtagErr) => {
-          if (hashtagErr) {
-            console.error('Error saving hashtag:', hashtagErr);
-            return res.status(500).json({ error: 'Error saving hashtags', details: hashtagErr.message });
-          }
-          completed++;
-          if (completed === total) {
-            res.status(200).json({ message: 'Card news saved successfully with hashtags', cardNewsId });
-          }
-        });
-      }
-    });
-  });
-};
 
 
 // 스케줄 아이템 저장 API
