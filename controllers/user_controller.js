@@ -786,11 +786,11 @@ exports.getRecommendedDiaries = (req, res) => {
   connection.query(getUserQuery, [userid], (err, userResult) => {
     if (err) {
       console.error(err);
-      return res.status(500).json({ error: '사용자 ID를 가져오는 중 오류가 발생했습니다' });
+      return res.status(500).json({ error: 'Error retrieving user ID' });
     }
 
     if (userResult.length === 0) {
-      return res.status(404).json({ error: '사용자를 찾을 수 없습니다' });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     const userId = userResult[0].id;
@@ -800,30 +800,30 @@ exports.getRecommendedDiaries = (req, res) => {
     connection.query(getUserGenresQuery, [userId], (genreErr, genreResult) => {
       if (genreErr) {
         console.error(genreErr);
-        return res.status(500).json({ error: '사용자의 선호 장르를 가져오는 중 오류가 발생했습니다' });
+        return res.status(500).json({ error: 'Error retrieving user genre preferences' });
       }
 
       if (genreResult.length === 0) {
-        return res.status(404).json({ error: '사용자의 선호 장르를 찾을 수 없습니다' });
+        return res.status(404).json({ error: 'User genre preferences not found' });
       }
 
       // 장르 ID 배열 생성
-      const genreIds = genreResult.map(row => row.genreId);
+      const genreIds = genreResult.map((row) => row.genreId);
 
       // 3. 장르별 일지 가져오기 (diaryId만 가져오기)
       const getDiariesByGenresQuery = 'SELECT DISTINCT d.diaryId FROM diary d JOIN diarygenre dg ON d.diaryId = dg.diaryId WHERE dg.genreId IN (?)';
       connection.query(getDiariesByGenresQuery, [genreIds], async (diaryErr, diaryResult) => {
         if (diaryErr) {
           console.error(diaryErr);
-          return res.status(500).json({ error: '장르별 일지를 가져오는 중 오류가 발생했습니다' });
+          return res.status(500).json({ error: 'Error retrieving diaries by genres' });
         }
 
         if (diaryResult.length === 0) {
-          return res.status(404).json({ error: '해당 장르에 대한 일지를 찾을 수 없습니다' });
+          return res.status(404).json({ error: 'No diaries found for the specified genres' });
         }
 
         // diaryResult에서 추출된 diaryId 배열 생성
-        const diaryIds = diaryResult.map(row => row.diaryId);
+        const diaryIds = diaryResult.map((row) => row.diaryId);
 
         // 4. 추천 일지의 내용 및 장르, 지역 가져오기
         const getDiaryContentsQuery = `
@@ -849,7 +849,7 @@ exports.getRecommendedDiaries = (req, res) => {
         connection.query(getDiaryContentsQuery, [diaryIds], async (contentErr, contentResult) => {
           if (contentErr) {
             console.error(contentErr);
-            return res.status(500).json({ error: '일지의 내용을 가져오는 중 오류가 발생했습니다' });
+            return res.status(500).json({ error: 'Error retrieving diary contents' });
           }
 
           // Handle cardNews content if contentType is 'cardNews'
@@ -860,53 +860,41 @@ exports.getRecommendedDiaries = (req, res) => {
                 const cardNewsContent = await getCardNewsContent(cardNewsId);
                 contentResult[i].cardNews = cardNewsContent;
               } catch (error) {
-                console.error('카드뉴스 내용을 불러오는 중 오류가 발생했습니다:', error);
-                return res.status(500).json({ error: '카드뉴스 내용을 가져오는 중 오류가 발생했습니다' });
+                console.error('Error fetching cardNews content:', error);
+                return res.status(500).json({ error: 'Error retrieving cardNews content' });
               }
             }
           }
 
-          // diaryId를 기준으로 각 일지의 내용 그룹화
-          const recommendedDiaries = [];
-          const diaryMap = {};
+          // diaryId를 기준으로 그룹화하여 각 일지별로 genres, region 정보를 포함하는 객체로 변환
+          const groupedDiaries = contentResult.reduce((acc, content) => {
+            const { diaryId, createDate, regionName, genres, ...diaryContent } = content;
 
-          contentResult.forEach(content => {
-            const diaryId = content.diaryId;
-            if (!diaryMap[diaryId]) {
-              diaryMap[diaryId] = {
+            if (!acc[diaryId]) {
+              acc[diaryId] = {
                 diaryId,
-                createDate: new Date(content.createDate),
-                region: content.regionName,
-                genres: content.genres ? content.genres.split(',') : [],
+                createDate: formatCreateDate(createDate), // 함수로 createDate 포맷팅
+                region: regionName,
+                genres: genres ? genres.split(',') : [], // 장르를 배열로 변환
                 contents: []
               };
-              recommendedDiaries.push(diaryMap[diaryId]);
             }
-            diaryMap[diaryId].contents.push({
-              contentId: content.contentId,
-              contentType: content.contentType,
-              content: content.content,
-              align: content.align,
-              imageSrc: content.imageSrc,
-              cardNewsId: content.cardNewsId,
-              cardNews: content.cardNews
-            });
-          });
 
-          // createDate를 원하는 포맷으로 변환하여 recommendedDiaries에 포함시킴
-          recommendedDiaries.forEach(diary => {
-            const formattedCreateDate = new Date(diary.createDate);
-            diary.createDate = `${formattedCreateDate.getFullYear()}-${String(formattedCreateDate.getMonth() + 1).padStart(2, '0')}-${String(formattedCreateDate.getDate()).padStart(2, '0')} ${String(formattedCreateDate.getHours()).padStart(2, '0')}:${String(formattedCreateDate.getMinutes()).padStart(2, '0')}:${String(formattedCreateDate.getSeconds()).padStart(2, '0')}`;
-          });
+            acc[diaryId].contents.push(diaryContent);
+
+            return acc;
+          }, {});
+
+          // 응답 준비
+          const recommendedDiaries = Object.values(groupedDiaries);
 
           // 모든 작업이 완료되면 클라이언트에 응답 보내기
-          res.status(200).json({ 추천_일지: recommendedDiaries });
+          res.status(200).json({ recommendedDiaries });
         });
       });
     });
   });
 };
-
 
 // createDate 포맷팅 함수
 function formatCreateDate(createDate) {
