@@ -466,8 +466,6 @@ exports.saveDiary = (req, res) => {
   });
 };
 
-
-
 // 도우미 함수
 function getUserInfo(userid) {
   return new Promise((resolve, reject) => {
