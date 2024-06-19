@@ -619,65 +619,88 @@ exports.getAllDiaries = (req, res) => {
       d.diaryId, 
       d.createDate, 
       r.name AS regionName,
-      g.genreName 
+      GROUP_CONCAT(DISTINCT g.genreName ORDER BY g.genreName) AS genres
     FROM 
       diary d
       LEFT JOIN diarygenre dg ON d.diaryId = dg.diaryId
       LEFT JOIN genre g ON dg.genreId = g.genreId
       LEFT JOIN region r ON d.regionId = r.id
+    GROUP BY 
+      d.diaryId, d.createDate, r.name
     ORDER BY 
       d.diaryId ASC`;
 
-  connection.query(getAllDiariesQuery, async (err, diaryResult) => {
+  connection.query(getAllDiariesQuery, (err, diaryResult) => {
     if (err) {
       console.error(err);
-      return res.status(500).json({ error: 'Error retrieving all diaries' });
+      return res.status(500).json({ error: '모든 일지를 가져오는 중 오류가 발생했습니다' });
     }
 
     if (diaryResult.length === 0) {
-      return res.status(404).json({ error: 'No diaries found' });
+      return res.status(404).json({ error: '일지를 찾을 수 없습니다' });
     }
 
-    try {
-      // 클라이언트에게 전송할 데이터 생성
-      const formattedDiaries = await Promise.all(diaryResult.map(async (diary) => {
-        const diaryId = diary.diaryId;
-        const createDate = new Date(diary.createDate); // MySQL에서 직접 불러온 createDate를 Date 객체로 변환
+    // diaryResult에서 추출된 diaryId 배열 생성
+    const diaries = diaryResult.map(row => ({
+      diaryId: row.diaryId,
+      createDate: new Date(row.createDate),
+      region: row.regionName,
+      genres: row.genres ? row.genres.split(',') : [],
+      contents: []
+    }));
 
-        const formattedCreateDate = `${createDate.getFullYear()}-${String(createDate.getMonth() + 1).padStart(2, '0')}-${String(createDate.getDate()).padStart(2, '0')} ${String(createDate.getHours()).padStart(2, '0')}:${String(createDate.getMinutes()).padStart(2, '0')}:${String(createDate.getSeconds()).padStart(2, '0')}`;
+    const diaryIds = diaries.map(diary => diary.diaryId);
 
-        // diaryId에 해당하는 장르 목록 가져오기
-        const getDiaryGenresQuery = 'SELECT genreName FROM genre WHERE genreId IN (SELECT genreId FROM diarygenre WHERE diaryId = ?)';
-        const genres = await new Promise((resolve, reject) => {
-          connection.query(getDiaryGenresQuery, [diaryId], (genreErr, genreResult) => {
-            if (genreErr) {
-              reject(genreErr);
-            } else {
-              resolve(genreResult.map(row => row.genreName));
-            }
+    // 2. 모든 일지의 내용 가져오기
+    const getDiaryContentsQuery = 'SELECT * FROM diaryContent WHERE diaryId IN (?) ORDER BY diaryId ASC';
+    connection.query(getDiaryContentsQuery, [diaryIds], async (contentErr, contentResult) => {
+      if (contentErr) {
+        console.error(contentErr);
+        return res.status(500).json({ error: '일지 내용을 가져오는 중 오류가 발생했습니다' });
+      }
+
+      // Handle cardNews content if contentType is 'cardNews'
+      for (let i = 0; i < contentResult.length; i++) {
+        if (contentResult[i].contentType === 'cardNews') {
+          const cardNewsId = contentResult[i].cardNewsId;
+          try {
+            const cardNewsContent = await getCardNewsContent(cardNewsId);
+            contentResult[i].cardNews = cardNewsContent;
+          } catch (error) {
+            console.error('카드뉴스 내용을 불러오는 중 오류가 발생했습니다:', error);
+            return res.status(500).json({ error: '카드뉴스 내용을 가져오는 중 오류가 발생했습니다' });
+          }
+        }
+      }
+
+      // diaryId를 기준으로 각 일지의 내용 그룹화
+      contentResult.forEach(content => {
+        const diaryIndex = diaries.findIndex(diary => diary.diaryId === content.diaryId);
+        if (diaryIndex !== -1) {
+          diaries[diaryIndex].contents.push({
+            contentId: content.contentId,
+            contentType: content.contentType,
+            content: content.content,
+            align: content.align,
+            imageSrc: content.imageSrc,
+            cardNewsId: content.cardNewsId,
+            cardNews: content.cardNews // 카드뉴스 내용 추가
           });
-        });
+        }
+      });
 
-        // diaryId에 해당하는 지역 이름 가져오기
-        const regionName = diary.regionName;
+      // createDate를 원하는 포맷으로 변환하여 diaries에 포함시킴
+      diaries.forEach(diary => {
+        const formattedCreateDate = diary.createDate;
+        diary.createDate = `${formattedCreateDate.getFullYear()}-${String(formattedCreateDate.getMonth() + 1).padStart(2, '0')}-${String(formattedCreateDate.getDate()).padStart(2, '0')} ${String(formattedCreateDate.getHours()).padStart(2, '0')}:${String(formattedCreateDate.getMinutes()).padStart(2, '0')}:${String(formattedCreateDate.getSeconds()).padStart(2, '0')}`;
+      });
 
-        // diaryId에 대한 정보를 포함한 일지 내용 반환
-        return {
-          diaryId: diary.diaryId,
-          createDate: formattedCreateDate,
-          region: regionName,
-          genres: genres
-        };
-      }));
-
-      // 모든 formattedDiaries 작업이 완료되면 클라이언트에게 응답을 보냄
-      res.status(200).json({ diaries: formattedDiaries });
-    } catch (error) {
-      console.error('Error retrieving diary contents:', error);
-      res.status(500).json({ error: 'Error retrieving diary contents' });
-    }
+      // 모든 작업이 완료되면 클라이언트에 응답 보내기
+      res.status(200).json({ diaries });
+    });
   });
 };
+
 
 // cardNewsId를 사용하여 cardNews의 내용을 가져오는 함수 정의
 async function getCardNewsContent(cardNewsId) {
