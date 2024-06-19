@@ -5,7 +5,7 @@ const path = require('path');
 const mysql = require('mysql2');
 const randomstring = require('randomstring');
 const nodemailer = require('nodemailer');
-const cors = require('cors');
+const fs = require('fs');
 const connection = mysql.createConnection({
   host: 'localhost',
   user: 'root',
