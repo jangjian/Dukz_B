@@ -612,10 +612,24 @@ exports.saveScheduleItem = (req, res) => {
   });
 };
 
-// 모든 일지 가져오기 (createDate 및 내용 포함)
+// 모든 일지 가져오기 (createDate, 지역, 장르 포함)
 exports.getAllDiaries = (req, res) => {
-  const getAllDiariesQuery = 'SELECT diaryId, createDate FROM diary ORDER BY diaryId ASC';
-  
+  const getAllDiariesQuery = `
+    SELECT 
+      d.diaryId, 
+      d.createDate, 
+      r.name AS regionName,
+      GROUP_CONCAT(DISTINCT g.genreName ORDER BY g.genreName) AS genres 
+    FROM 
+      diary d
+      LEFT JOIN diarygenre dg ON d.diaryId = dg.diaryId
+      LEFT JOIN genre g ON dg.genreId = g.genreId
+      LEFT JOIN region r ON d.regionId = r.id
+    GROUP BY 
+      d.diaryId, d.createDate, r.name
+    ORDER BY 
+      d.diaryId ASC`;
+
   connection.query(getAllDiariesQuery, async (err, diaryResult) => {
     if (err) {
       console.error(err);
@@ -628,46 +642,24 @@ exports.getAllDiaries = (req, res) => {
 
     try {
       // 클라이언트에게 전송할 데이터 생성
-      const formattedDiaries = await Promise.all(diaryResult.map(async (diary) => {
-        const diaryId = diary.diaryId;
-        const createDate = new Date(diary.createDate); // MySQL에서 직접 불러온 createDate를 Date 객체로 변환
+      const formattedDiaries = diaryResult.map((diary) => {
+        const createDate = new Date(diary.createDate);
 
         const formattedCreateDate = `${createDate.getFullYear()}-${String(createDate.getMonth() + 1).padStart(2, '0')}-${String(createDate.getDate()).padStart(2, '0')} ${String(createDate.getHours()).padStart(2, '0')}:${String(createDate.getMinutes()).padStart(2, '0')}:${String(createDate.getSeconds()).padStart(2, '0')}`;
 
-        const getDiaryContentQuery = 'SELECT * FROM diaryContent WHERE diaryId = ? ORDER BY diaryId ASC';
-        
-        const contentQueryResult = await new Promise((resolve, reject) => {
-          connection.query(getDiaryContentQuery, [diaryId], async (contentErr, contentResult) => {
-            if (contentErr) {
-              reject(contentErr);
-            } else {
-              // contentType이 cardNews인 경우에 대한 처리 추가
-              for (let i = 0; i < contentResult.length; i++) {
-                if (contentResult[i].contentType === 'cardNews') {
-                  const cardNewsId = contentResult[i].cardNewsId;
-                  // cardNewsId를 사용하여 cardNews의 내용을 가져오는 함수 호출
-                  const cardNewsContent = await getCardNewsContent(cardNewsId);
-                  contentResult[i].cardNews = cardNewsContent;
-                }
-              }
-              resolve(contentResult);
-            }
-          });
-        });
-
-        // diaryId와 formattedCreateDate를 포함한 일지 내용 반환
         return {
           diaryId: diary.diaryId,
           createDate: formattedCreateDate,
-          content: contentQueryResult // diaryId에 해당하는 모든 내용
+          region: diary.regionName,
+          genres: diary.genres ? diary.genres.split(',') : []
         };
-      }));
+      });
 
       // 모든 formattedDiaries 작업이 완료되면 클라이언트에게 응답을 보냄
       res.status(200).json({ diaries: formattedDiaries });
     } catch (error) {
-      console.error('Error retrieving diary contents:', error);
-      res.status(500).json({ error: 'Error retrieving diary contents' });
+      console.error('Error formatting diaries:', error);
+      res.status(500).json({ error: 'Error formatting diaries' });
     }
   });
 };
@@ -770,7 +762,7 @@ exports.getDiary = (req, res) => {
   });
 };
 
-// 사용자의 선호하는 장르 기반으로 추천 일지 가져오기
+// 사용자의 선호하는 장르 기반으로 추천 일지 가져오기 (장르와 지역 포함)
 exports.getRecommendedDiaries = (req, res) => {
   const { userid } = req.body;
 
@@ -803,8 +795,8 @@ exports.getRecommendedDiaries = (req, res) => {
       // 장르 ID 배열 생성
       const genreIds = genreResult.map((row) => row.genreId);
 
-      // 3. 장르별 일지 가져오기
-      const getDiariesByGenresQuery = 'SELECT DISTINCT diaryId FROM diarygenre WHERE genreId IN (?)';
+      // 3. 장르별 일지 가져오기 (diaryId만 가져오기)
+      const getDiariesByGenresQuery = 'SELECT DISTINCT d.diaryId FROM diary d JOIN diarygenre dg ON d.diaryId = dg.diaryId WHERE dg.genreId IN (?)';
       connection.query(getDiariesByGenresQuery, [genreIds], async (diaryErr, diaryResult) => {
         if (diaryErr) {
           console.error(diaryErr);
@@ -818,8 +810,27 @@ exports.getRecommendedDiaries = (req, res) => {
         // diaryResult에서 추출된 diaryId 배열 생성
         const diaryIds = diaryResult.map((row) => row.diaryId);
 
-        // 4. 추천 일지의 내용 가져오기
-        const getDiaryContentsQuery = 'SELECT * FROM diaryContent WHERE diaryId IN (?) ORDER BY diaryId ASC';
+        // 4. 추천 일지의 내용 및 장르, 지역 가져오기
+        const getDiaryContentsQuery = `
+          SELECT 
+            d.diaryId, 
+            d.createDate, 
+            r.name AS regionName,
+            GROUP_CONCAT(DISTINCT g.genreName ORDER BY g.genreName) AS genres,
+            dc.* 
+          FROM 
+            diary d
+            JOIN diaryContent dc ON d.diaryId = dc.diaryId
+            LEFT JOIN diarygenre dg ON d.diaryId = dg.diaryId
+            LEFT JOIN genre g ON dg.genreId = g.genreId
+            LEFT JOIN region r ON d.regionId = r.id
+          WHERE 
+            d.diaryId IN (?) 
+          GROUP BY
+            d.diaryId, d.createDate, r.name, dc.contentId
+          ORDER BY 
+            d.diaryId ASC`;
+
         connection.query(getDiaryContentsQuery, [diaryIds], async (contentErr, contentResult) => {
           if (contentErr) {
             console.error(contentErr);
@@ -840,25 +851,48 @@ exports.getRecommendedDiaries = (req, res) => {
             }
           }
 
-          // diaryId를 기준으로 그룹화
+          // diaryId를 기준으로 그룹화하여 각 일지별로 genres, region 정보를 포함하는 객체로 변환
           const groupedDiaries = contentResult.reduce((acc, content) => {
-            if (!acc[content.diaryId]) {
-              acc[content.diaryId] = [];
+            const { diaryId, createDate, regionName, genres, ...diaryContent } = content;
+
+            if (!acc[diaryId]) {
+              acc[diaryId] = {
+                diaryId,
+                createDate: formatCreateDate(createDate), // 함수로 createDate 포맷팅
+                region: regionName,
+                genres: genres ? genres.split(',') : [], // 장르를 배열로 변환
+                contents: []
+              };
             }
-            acc[content.diaryId].push(content);
+
+            acc[diaryId].contents.push(diaryContent);
+
             return acc;
           }, {});
 
-          // 배열 형태로 변환
-          const groupedDiariesArray = Object.values(groupedDiaries);
+          // 응답 준비
+          const recommendedDiaries = Object.values(groupedDiaries);
 
           // 모든 작업이 완료되면 클라이언트에 응답 보내기
-          res.status(200).json({ recommendedDiaries: groupedDiariesArray });
+          res.status(200).json({ recommendedDiaries });
         });
       });
     });
   });
 };
+
+// createDate 포맷팅 함수
+function formatCreateDate(createDate) {
+  const date = new Date(createDate);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
+}
+
+
+// createDate 포맷팅 함수
+function formatCreateDate(createDate) {
+  const dateObj = new Date(createDate);
+  return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')} ${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}:${String(dateObj.getSeconds()).padStart(2, '0')}`;
+}
 
 // 사용자의 일지 가져오기
 exports.getUserDiary = (req, res) => {
@@ -878,8 +912,25 @@ exports.getUserDiary = (req, res) => {
 
     const userId = userResult[0].id;
 
-    // 2. 사용자가 작성한 모든 일지의 ID와 생성일자 가져오기
-    const getUserDiariesQuery = 'SELECT DISTINCT d.diaryId, d.createDate FROM diary d INNER JOIN diaryContent dc ON d.diaryId = dc.diaryId WHERE d.userId = ?';
+    // 2. 사용자가 작성한 모든 일지의 ID와 생성일자 가져오기 (장르 및 지역 정보 포함)
+    const getUserDiariesQuery = `
+      SELECT 
+        d.diaryId, 
+        d.createDate, 
+        r.name AS regionName, 
+        GROUP_CONCAT(DISTINCT g.genreName ORDER BY g.genreName) AS genres
+      FROM 
+        diary d 
+        LEFT JOIN region r ON d.regionId = r.id
+        LEFT JOIN diarygenre dg ON d.diaryId = dg.diaryId
+        LEFT JOIN genre g ON dg.genreId = g.genreId
+      WHERE 
+        d.userId = ?
+      GROUP BY 
+        d.diaryId, d.createDate, r.name
+      ORDER BY 
+        d.diaryId ASC`;
+
     connection.query(getUserDiariesQuery, [userId], (diaryErr, diaryResult) => {
       if (diaryErr) {
         console.error(diaryErr);
@@ -894,6 +945,8 @@ exports.getUserDiary = (req, res) => {
       const userDiaries = diaryResult.map(row => ({
         diaryId: row.diaryId,
         createDate: row.createDate,
+        region: row.regionName,
+        genres: row.genres ? row.genres.split(',') : [], // 장르를 배열로 변환
         contents: [] // 각 일지의 내용을 저장할 배열
       }));
 
