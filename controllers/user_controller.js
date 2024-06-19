@@ -619,14 +619,12 @@ exports.getAllDiaries = (req, res) => {
       d.diaryId, 
       d.createDate, 
       r.name AS regionName,
-      GROUP_CONCAT(DISTINCT g.genreName ORDER BY g.genreName) AS genres 
+      g.genreName 
     FROM 
       diary d
       LEFT JOIN diarygenre dg ON d.diaryId = dg.diaryId
       LEFT JOIN genre g ON dg.genreId = g.genreId
       LEFT JOIN region r ON d.regionId = r.id
-    GROUP BY 
-      d.diaryId, d.createDate, r.name
     ORDER BY 
       d.diaryId ASC`;
 
@@ -642,24 +640,41 @@ exports.getAllDiaries = (req, res) => {
 
     try {
       // 클라이언트에게 전송할 데이터 생성
-      const formattedDiaries = diaryResult.map((diary) => {
-        const createDate = new Date(diary.createDate);
+      const formattedDiaries = await Promise.all(diaryResult.map(async (diary) => {
+        const diaryId = diary.diaryId;
+        const createDate = new Date(diary.createDate); // MySQL에서 직접 불러온 createDate를 Date 객체로 변환
 
         const formattedCreateDate = `${createDate.getFullYear()}-${String(createDate.getMonth() + 1).padStart(2, '0')}-${String(createDate.getDate()).padStart(2, '0')} ${String(createDate.getHours()).padStart(2, '0')}:${String(createDate.getMinutes()).padStart(2, '0')}:${String(createDate.getSeconds()).padStart(2, '0')}`;
 
+        // diaryId에 해당하는 장르 목록 가져오기
+        const getDiaryGenresQuery = 'SELECT genreName FROM genre WHERE genreId IN (SELECT genreId FROM diarygenre WHERE diaryId = ?)';
+        const genres = await new Promise((resolve, reject) => {
+          connection.query(getDiaryGenresQuery, [diaryId], (genreErr, genreResult) => {
+            if (genreErr) {
+              reject(genreErr);
+            } else {
+              resolve(genreResult.map(row => row.genreName));
+            }
+          });
+        });
+
+        // diaryId에 해당하는 지역 이름 가져오기
+        const regionName = diary.regionName;
+
+        // diaryId에 대한 정보를 포함한 일지 내용 반환
         return {
           diaryId: diary.diaryId,
           createDate: formattedCreateDate,
-          region: diary.regionName,
-          genres: diary.genres ? diary.genres.split(',') : []
+          region: regionName,
+          genres: genres
         };
-      });
+      }));
 
       // 모든 formattedDiaries 작업이 완료되면 클라이언트에게 응답을 보냄
       res.status(200).json({ diaries: formattedDiaries });
     } catch (error) {
-      console.error('Error formatting diaries:', error);
-      res.status(500).json({ error: 'Error formatting diaries' });
+      console.error('Error retrieving diary contents:', error);
+      res.status(500).json({ error: 'Error retrieving diary contents' });
     }
   });
 };
