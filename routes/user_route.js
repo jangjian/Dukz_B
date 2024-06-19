@@ -18,6 +18,9 @@ router.post('/checkDuplicate', userController.checkDuplicate);
 // 이메일 중복확인 라우트
 router.post('/emailDuplicate', userController.emailDuplicate);
 
+// 사용자의 정보 가져오는 라우트 
+router.post("/getUserInfo", userController.getUserInfo);
+
 // 이메일 인증번호 보내는 라우트 
 router.post("/certificate", userController.certificate);
 
