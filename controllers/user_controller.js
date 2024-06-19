@@ -547,8 +547,6 @@ exports.saveGenre = (req, res) => {
   });
 };
 
-
-
 // 도우미 함수
 function getUserInfo(userid) {
   return new Promise((resolve, reject) => {
@@ -557,18 +555,17 @@ function getUserInfo(userid) {
     connection.query(getUserInfoQuery, [userid], (userErr, userResult) => {
       if (userErr) {
         reject(userErr);
+      } else {
+        if (userResult.length === 0) {
+          reject(new Error('사용자를 찾을 수 없습니다.'));
+        } else {
+          const userInfo = {
+            nickname: userResult[0].name,
+            profileImage: userResult[0].image_url,
+          };
+          resolve(userInfo);
+        }
       }
-
-      if (userResult.length === 0) {
-        reject('사용자를 찾을 수 없습니다.');
-      }
-
-      const userInfo = {
-        nickname: userResult[0].name,
-        profileImage: userResult[0].image_url,
-      };
-
-      resolve(userInfo);
     });
   });
 }
@@ -595,8 +592,6 @@ function getHashtagsForCardNews(cardNewsId) {
     });
   });
 }
-
-
 
 // 스케줄 아이템 저장 API
 exports.saveScheduleItem = (req, res) => {
@@ -1014,8 +1009,14 @@ exports.getCardNews = (req, res) => {
               });
           })
           .catch(error => {
-            console.error(error);
-            reject(error);
+            console.error("Error fetching user info:", error);
+            // 사용자를 찾을 수 없는 경우 기본값 설정
+            const cardNewsData = {
+              cardNews,
+              userInfo: { nickname: 'Unknown', profileImage: '' },
+              hashtags: [],
+            };
+            resolve(cardNewsData);
           });
       });
     });
@@ -1025,10 +1026,13 @@ exports.getCardNews = (req, res) => {
         res.status(200).json(allCardNews);
       })
       .catch(error => {
-        res.status(500).json({ error: '사용자 정보 및 해시태그를 가져오는 중 오류가 발생했습니다.' });
+        console.error("Error retrieving card news:", error);
+        res.status(500).json({ error: '카드 뉴스 데이터를 가져오는 중 오류가 발생했습니다.' });
       });
   });
 };
+
+
 
 exports.saveSchedule = (req, res) => {
   const { userId, dayId, title } = req.body;
