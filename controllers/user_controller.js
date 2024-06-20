@@ -1221,7 +1221,7 @@ exports.getUserBookmarks = (req, res) => {
 
   const getUserBookmarksQuery = `
       SELECT cn.cardNewsId, cn.title, cn.content, cn.image_url, cn.createDate
-      FROM bookmarks b
+      FROM Bookmarks b
       JOIN cardNews cn ON b.cardNewsId = cn.cardNewsId
       WHERE b.userId = ?
   `;
