@@ -1052,7 +1052,6 @@ exports.getUserDiary = (req, res) => {
   });
 };
 
-
 // 사용자 이미지 URL 불러오기 API
 exports.getUrl = (req, res) => {
   const { userid } = req.body;
@@ -1131,6 +1130,45 @@ exports.getCardNews = (req, res) => {
         console.error("Error retrieving card news:", error);
         res.status(500).json({ error: '카드 뉴스 데이터를 가져오는 중 오류가 발생했습니다.' });
       });
+  });
+};
+
+// 북마크 추가 API
+exports.addBookmark = (req, res) => {
+  const { userId, cardNewsId } = req.body;
+
+  const addBookmarkQuery = 'INSERT INTO Bookmarks (userId, cardNewsId) VALUES (?, ?)';
+  connection.query(addBookmarkQuery, [userId, cardNewsId], (err, result) => {
+      if (err) {
+          if (err.code === 'ER_DUP_ENTRY') {
+              return res.status(400).json({ error: '이미 북마크한 카드뉴스입니다.' });
+          }
+          console.error(err);
+          return res.status(500).json({ error: '북마크 추가 중 오류가 발생했습니다.' });
+      }
+      res.status(200).json({ message: '북마크가 성공적으로 추가되었습니다.' });
+  });
+};
+
+// 사용자의 모든 북마크 가져오기 API
+exports.getUserBookmarks = (req, res) => {
+  const { userId } = req.body;
+
+  console.log('Received userId:', userId); // userId 값 로그 출력
+
+  const getUserBookmarksQuery = `
+      SELECT cn.cardNewsId, cn.title, cn.content, cn.image_url, cn.createDate
+      FROM bookmarks b
+      JOIN cardNews cn ON b.cardNewsId = cn.cardNewsId
+      WHERE b.userId = ?
+  `;
+  connection.query(getUserBookmarksQuery, [userId], (err, results) => {
+      if (err) {
+          console.error('Error fetching bookmarks:', err);
+          return res.status(500).json({ error: '북마크를 가져오는 중 오류가 발생했습니다.' });
+      }
+      console.log('Query results:', results); // 쿼리 결과 로그 출력
+      res.status(200).json({ bookmarks: results });
   });
 };
 

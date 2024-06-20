@@ -60,6 +60,12 @@ router.post("/saveScheduleItem",userController.saveScheduleItem);
 // 카드 뉴스 저장 라우트
 router.post("/saveCardNews",userController.saveCardNews);
 
+// 북마크 추가 라우트
+router.post("/addBookmark",userController.addBookmark);
+
+// 사용자의 모든 북마크 가져오기 라우트
+router.post("/getUserBookmarks",userController.getUserBookmarks);
+
 // 카드 뉴스 불러오기 라우트
 router.get("/getCardNews", userController.getCardNews);
 
