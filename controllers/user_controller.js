@@ -1135,7 +1135,21 @@ exports.getCardNews = (req, res) => {
 
 // 북마크 추가 API
 exports.addBookmark = (req, res) => {
-  const { userId, cardNewsId } = req.body;
+  const { userid, cardNewsId } = req.body;
+
+  // 1. 사용자의 id 가져오기
+  const getUserQuery = 'SELECT id FROM user WHERE userid = ?';
+  connection.query(getUserQuery, [userid], (err, userResult) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: '사용자 ID를 가져오는 중 오류가 발생했습니다' });
+    }
+
+    if (userResult.length === 0) {
+      return res.status(404).json({ error: '사용자를 찾을 수 없습니다' });
+    }
+
+  const userId = userResult[0].id;
 
   const addBookmarkQuery = 'INSERT INTO Bookmarks (userId, cardNewsId) VALUES (?, ?)';
   connection.query(addBookmarkQuery, [userId, cardNewsId], (err, result) => {
@@ -1147,14 +1161,27 @@ exports.addBookmark = (req, res) => {
           return res.status(500).json({ error: '북마크 추가 중 오류가 발생했습니다.' });
       }
       res.status(200).json({ message: '북마크가 성공적으로 추가되었습니다.' });
+    });
   });
 };
 
 // 사용자의 모든 북마크 가져오기 API
 exports.getUserBookmarks = (req, res) => {
-  const { userId } = req.body;
+  const { userid } = req.body;
 
-  console.log('Received userId:', userId); // userId 값 로그 출력
+  // 1. 사용자의 id 가져오기
+  const getUserQuery = 'SELECT id FROM user WHERE userid = ?';
+  connection.query(getUserQuery, [userid], (err, userResult) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: '사용자 ID를 가져오는 중 오류가 발생했습니다' });
+    }
+
+    if (userResult.length === 0) {
+      return res.status(404).json({ error: '사용자를 찾을 수 없습니다' });
+    }
+
+  const userId = userResult[0].id;
 
   const getUserBookmarksQuery = `
       SELECT cn.cardNewsId, cn.title, cn.content, cn.image_url, cn.createDate
@@ -1167,8 +1194,8 @@ exports.getUserBookmarks = (req, res) => {
           console.error('Error fetching bookmarks:', err);
           return res.status(500).json({ error: '북마크를 가져오는 중 오류가 발생했습니다.' });
       }
-      console.log('Query results:', results); // 쿼리 결과 로그 출력
       res.status(200).json({ bookmarks: results });
+    });
   });
 };
 
