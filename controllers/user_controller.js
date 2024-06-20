@@ -35,70 +35,6 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 } // 50MB
 }).array('images', 10);
 
-// 일지 내용을 저장하는 API
-exports.saveDiary = (req, res) => {
-  upload(req, res, function (uploadErr) {
-    if (uploadErr) {
-      console.error('Upload Error:', uploadErr);
-      return res.status(500).json({ error: 'Error uploading image', details: uploadErr.message });
-    }
-    
-    const imageUrls = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
-    const { diaryId, contents } = req.body;
-    let parsedContents;
-    try {
-      parsedContents = JSON.parse(contents);
-      if (!Array.isArray(parsedContents)) {
-        throw new Error('Parsed contents is not an array');
-      }
-    } catch (parseErr) {
-      console.error('Error parsing contents:', parseErr);
-      return res.status(400).json({ error: 'Invalid contents format' });
-    }
-
-    const saveContent = (content, imageSrc, callback) => {
-      const { contentType, contentText, align, cardNewsId } = content;
-
-      const saveContentQuery = 'INSERT INTO diaryContent (diaryId, contentType, content, align, imageSrc, cardNewsId) VALUES (?, ?, ?, ?, ?, ?)';
-      const contentValues = [diaryId, contentType, contentText, align, imageSrc, cardNewsId];
-
-      connection.query(saveContentQuery, contentValues, (err, results) => {
-        if (err) {
-          console.error('Error executing query:', err);
-          if (err.code !== 'ER_DATA_TOO_LONG') {
-            return callback(err);
-          }
-        }
-        callback(null, results);
-      });
-    };
-
-    let remaining = parsedContents.length;
-    const errors = [];
-
-    parsedContents.forEach((content, index) => {
-      let imageSrc = null;
-      if (content.contentType === 'image' && imageUrls.length > 0) {
-        imageSrc = imageUrls.shift();  // 올바르게 이미지 URL을 할당합니다.
-      }
-
-      saveContent(content, imageSrc, (contentErr) => {
-        if (contentErr) {
-          errors.push(contentErr);
-        }
-        remaining -= 1;
-        if (remaining === 0) {
-          if (errors.length > 0) {
-            console.error(errors);
-            res.status(500).json({ error: 'Error saving diary content', details: errors });
-          } else {
-            res.status(200).json({ message: 'Diary content saved successfully' });
-          }
-        }
-      });
-    });
-  });
-};
 
 // 카드뉴스 저장 API
 exports.saveCardNews = (req, res) => {
@@ -273,7 +209,6 @@ exports.signup5 = (req, res) => {
     });
   });
 };
-
 
 // 회원가입 API 6 (생년월일)
 exports.signup6 = (req, res) => {
@@ -476,73 +411,162 @@ exports.getName = (req, res) => {
   });
 };
 
-// 지역을 저장하는 API
-exports.saveRegion = (req, res) => {
-  const { regionName, userid } = req.body;
-
-  app.use(bodyParser.json({ limit: '100mb' }));
-  app.use(bodyParser.urlencoded({ limit: '100mb', extended: true }));
-
-  // 사용자 정보 조회
-  const getUserIdQuery = 'SELECT id FROM user WHERE userid = ?';
-  connection.query(getUserIdQuery, [userid], (userErr, userResult) => {
-    if (userErr) {
-      console.error(userErr);
-      return res.status(500).json({ error: 'Error retrieving user information' });
-    }
-
-    if (userResult.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const userId = userResult[0].id;
-
-    // 지역 ID 조회
-    const getRegionIdQuery = 'SELECT id FROM region WHERE name = ?';
-    connection.query(getRegionIdQuery, [regionName], (regionErr, regionResult) => {
-      if (regionErr) {
-        console.error(regionErr);
-        return res.status(500).json({ error: 'Error retrieving region information' });
+exports.saveDiaryDetails = (req, res) => {
+  upload(req, res, function (uploadErr) {
+      if (uploadErr) {
+          console.error('Upload Error:', uploadErr);
+          return res.status(500).json({ error: 'Error uploading image', details: uploadErr.message });
       }
 
-      if (regionResult.length === 0) {
-        return res.status(404).json({ error: 'Region not found' });
+      const imageUrls = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
+      const { regionName, userid, genres, contents } = req.body;
+
+      let parsedGenres;
+      try {
+          parsedGenres = JSON.parse(genres); // 문자열을 배열로 변환
+          if (!Array.isArray(parsedGenres)) {
+              throw new Error('Parsed genres is not an array');
+          }
+      } catch (parseErr) {
+          console.error('Error parsing genres:', parseErr);
+          return res.status(400).json({ error: 'Invalid genres format' });
       }
 
-      const regionId = regionResult[0].id;
+      let parsedContents;
+      try {
+          parsedContents = JSON.parse(contents);
+          if (!Array.isArray(parsedContents)) {
+              throw new Error('Parsed contents is not an array');
+          }
+      } catch (parseErr) {
+          console.error('Error parsing contents:', parseErr);
+          return res.status(400).json({ error: 'Invalid contents format' });
+      }
 
-      // 지역 정보 저장
-      const saveDiaryQuery = 'INSERT INTO diary (userId, regionId) VALUES (?, ?)';
-      const diaryValues = [userId, regionId];
+      connection.beginTransaction((err) => {
+          if (err) {
+              console.error('Error starting transaction:', err);
+              return res.status(500).json({ error: 'Error starting transaction' });
+          }
 
-      connection.query(saveDiaryQuery, diaryValues, (diaryErr, diaryResult) => {
-        if (diaryErr) {
-          console.error(diaryErr);
-          return res.status(500).json({ error: 'Error saving diary information' });
-        }
+          const getUserIdQuery = 'SELECT id FROM user WHERE userid = ?';
+          connection.query(getUserIdQuery, [userid], (userErr, userResult) => {
+              if (userErr) {
+                  console.error(userErr);
+                  return connection.rollback(() => {
+                      res.status(500).json({ error: 'Error retrieving user information' });
+                  });
+              }
 
-        res.status(200).json({ message: 'Region information saved successfully', diaryId: diaryResult.insertId });
+              if (userResult.length === 0) {
+                  return connection.rollback(() => {
+                      res.status(404).json({ error: 'User not found' });
+                  });
+              }
+
+              const userId = userResult[0].id;
+
+              const getRegionIdQuery = 'SELECT id FROM region WHERE name = ?';
+              connection.query(getRegionIdQuery, [regionName], (regionErr, regionResult) => {
+                  if (regionErr) {
+                      console.error(regionErr);
+                      return connection.rollback(() => {
+                          res.status(500).json({ error: 'Error retrieving region information' });
+                      });
+                  }
+
+                  if (regionResult.length === 0) {
+                      return connection.rollback(() => {
+                          res.status(404).json({ error: 'Region not found' });
+                      });
+                  }
+
+                  const regionId = regionResult[0].id;
+
+                  const saveDiaryQuery = 'INSERT INTO diary (userId, regionId) VALUES (?, ?)';
+                  const diaryValues = [userId, regionId];
+
+                  connection.query(saveDiaryQuery, diaryValues, (diaryErr, diaryResult) => {
+                      if (diaryErr) {
+                          console.error(diaryErr);
+                          return connection.rollback(() => {
+                              res.status(500).json({ error: 'Error saving diary information' });
+                          });
+                      }
+
+                      const diaryId = diaryResult.insertId;
+
+                      const insertGenresQuery = 'INSERT INTO diarygenre (diaryId, genreId) VALUES ?';
+                      const genreValues = parsedGenres.map((genreId) => [diaryId, genreId]);
+
+                      connection.query(insertGenresQuery, [genreValues], (insertErr) => {
+                          if (insertErr) {
+                              console.error(insertErr);
+                              return connection.rollback(() => {
+                                  res.status(500).json({ error: 'Error inserting genre preferences' });
+                              });
+                          }
+
+                          const saveContent = (content, imageSrc, callback) => {
+                              const { contentType, contentText, align, cardNewsId } = content;
+
+                              const saveContentQuery = 'INSERT INTO diaryContent (diaryId, contentType, content, align, imageSrc, cardNewsId) VALUES (?, ?, ?, ?, ?, ?)';
+                              const contentValues = [diaryId, contentType, contentText, align, imageSrc, cardNewsId];
+
+                              connection.query(saveContentQuery, contentValues, (err, results) => {
+                                  if (err) {
+                                      console.error('Error executing query:', err);
+                                      if (err.code !== 'ER_DATA_TOO_LONG') {
+                                          return callback(err);
+                                      }
+                                  }
+                                  callback(null, results);
+                              });
+                          };
+
+                          let remaining = parsedContents.length;
+                          const errors = [];
+
+                          parsedContents.forEach((content, index) => {
+                              let imageSrc = null;
+                              if (content.contentType === 'image' && imageUrls.length > 0) {
+                                  imageSrc = imageUrls.shift();
+                              }
+
+                              saveContent(content, imageSrc, (contentErr) => {
+                                  if (contentErr) {
+                                      errors.push(contentErr);
+                                  }
+                                  remaining -= 1;
+                                  if (remaining === 0) {
+                                      if (errors.length > 0) {
+                                          console.error(errors);
+                                          return connection.rollback(() => {
+                                              res.status(500).json({ error: 'Error saving diary content', details: errors });
+                                          });
+                                      } else {
+                                          connection.commit((commitErr) => {
+                                              if (commitErr) {
+                                                  console.error('Error committing transaction:', commitErr);
+                                                  return connection.rollback(() => {
+                                                      res.status(500).json({ error: 'Error committing transaction' });
+                                                  });
+                                              }
+                                              res.status(200).json({ message: 'Diary details saved successfully', diaryId });
+                                          });
+                                      }
+                                  }
+                              });
+                          });
+                      });
+                  });
+              });
+          });
       });
-    });
   });
 };
 
-// 장르를 저장하는 API
-exports.saveGenre = (req, res) => {
-  const { diaryId, genres } = req.body;
 
-  const insertGenresQuery = 'INSERT INTO diarygenre (diaryId, genreId) VALUES ?';
-  const values = genres.map((genreId) => [diaryId, genreId]);
-
-  connection.query(insertGenresQuery, [values], (insertErr) => {
-    if (insertErr) {
-      console.error(insertErr);
-      return res.status(500).json({ error: 'Error inserting genre preferences' });
-    }
-
-    res.status(200).json({ message: 'Genre preferences saved successfully' });
-  });
-};
 
 // 도우미 함수
 function getUserInfo(userid) {
