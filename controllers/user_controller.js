@@ -655,7 +655,6 @@ exports.getAllDiaries = (req, res) => {
   });
 };
 
-
 // 도우미 함수
 function getUserInfo(userid) {
   return new Promise((resolve, reject) => {
@@ -720,8 +719,6 @@ exports.saveScheduleItem = (req, res) => {
     res.status(200).json({ message: 'Schedule item saved successfully', scheduleItemId: result.insertId });
   });
 };
-
-
 
 // cardNewsId를 사용하여 cardNews의 내용을 가져오는 함수 정의
 async function getCardNewsContent(cardNewsId) {
@@ -993,20 +990,19 @@ exports.getUserDiary = (req, res) => {
         return res.status(404).json({ error: '해당 사용자의 일지가 없습니다' });
       }
 
-      // diaryResult에서 추출된 diaryId와 createDate 배열 생성
       const userDiaries = diaryResult.map(row => ({
         diaryId: row.diaryId,
         createDate: row.createDate,
         region: row.regionName,
         genres: row.genres ? row.genres.split(',') : [], // 장르를 배열로 변환
-        contents: [] // 각 일지의 내용을 저장할 배열
+        contents: []
       }));
 
       // diaryId 배열 생성
       const diaryIds = userDiaries.map(diary => diary.diaryId);
 
       // 3. 사용자가 작성한 모든 일지의 내용 가져오기
-      const getDiaryContentsQuery = 'SELECT * FROM diaryContent WHERE diaryId IN (?) ORDER BY diaryId ASC';
+      const getDiaryContentsQuery = 'SELECT * FROM diaryContent WHERE diaryId IN (?) ORDER BY contentId ASC'; 
       connection.query(getDiaryContentsQuery, [diaryIds], async (contentErr, contentResult) => {
         if (contentErr) {
           console.error(contentErr);
@@ -1055,6 +1051,7 @@ exports.getUserDiary = (req, res) => {
     });
   });
 };
+
 
 // 사용자 이미지 URL 불러오기 API
 exports.getUrl = (req, res) => {
