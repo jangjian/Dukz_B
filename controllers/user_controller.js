@@ -1201,7 +1201,7 @@ exports.deleteBookmark = (req, res) => {
   });
 };
 
-// 사용자의 모든 북마크 가져오기 API
+// 사용자의 모든 북마크 가져오기 API 
 exports.getUserBookmarks = (req, res) => {
   const { userid } = req.body;
 
@@ -1217,23 +1217,41 @@ exports.getUserBookmarks = (req, res) => {
       return res.status(404).json({ error: '사용자를 찾을 수 없습니다' });
     }
 
-  const userId = userResult[0].id;
+    const userId = userResult[0].id;
 
-  const getUserBookmarksQuery = `
-      SELECT cn.cardNewsId, cn.title, cn.content, cn.image_url, cn.createDate
+    // 2. 북마크와 카드뉴스 정보를 함께 가져오기
+    const getUserBookmarksQuery = `
+      SELECT cn.cardNewsId, cn.title, cn.content, cn.image_url, cn.createDate,
+             u.name AS userInfo_nickname, u.image_url AS userInfo_profileImage
       FROM Bookmarks b
       JOIN cardNews cn ON b.cardNewsId = cn.cardNewsId
+      LEFT JOIN user u ON cn.userid = u.id
       WHERE b.userId = ?
-  `;
-  connection.query(getUserBookmarksQuery, [userId], (err, results) => {
+    `;
+    connection.query(getUserBookmarksQuery, [userId], (err, results) => {
       if (err) {
-          console.error('Error fetching bookmarks:', err);
-          return res.status(500).json({ error: '북마크를 가져오는 중 오류가 발생했습니다.' });
+        console.error('Error fetching bookmarks:', err);
+        return res.status(500).json({ error: '북마크를 가져오는 중 오류가 발생했습니다.' });
       }
-      res.status(200).json({ bookmarks: results });
+
+      // 결과를 필요한 형식으로 가공
+      const formattedBookmarks = results.map(result => ({
+        cardNewsId: result.cardNewsId,
+        title: result.title,
+        content: result.content,
+        image_url: result.image_url,
+        createDate: result.createDate,
+        userInfo: {
+          nickname: result.userInfo_nickname || 'Unknown',
+          profileImage: result.userInfo_profileImage || ''
+        }
+      }));
+
+      res.status(200).json({ bookmarks: formattedBookmarks });
     });
   });
 };
+
 
 exports.saveSchedule = (req, res) => {
   const { userId, dayId, title } = req.body;
