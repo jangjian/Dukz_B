@@ -1165,6 +1165,42 @@ exports.addBookmark = (req, res) => {
   });
 };
 
+// 북마크 삭제 API
+exports.deleteBookmark = (req, res) => {
+  const { userid, cardNewsId } = req.body;
+
+  // 1. 사용자의 id 가져오기
+  const getUserQuery = 'SELECT id FROM user WHERE userid = ?';
+  connection.query(getUserQuery, [userid], (err, userResult) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: '사용자 ID를 가져오는 중 오류가 발생했습니다' });
+    }
+
+    if (userResult.length === 0) {
+      return res.status(404).json({ error: '사용자를 찾을 수 없습니다' });
+    }
+
+    const userId = userResult[0].id;
+
+    // 2. 북마크 삭제 쿼리 실행
+    const deleteBookmarkQuery = 'DELETE FROM Bookmarks WHERE userId = ? AND cardNewsId = ?';
+    connection.query(deleteBookmarkQuery, [userId, cardNewsId], (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: '북마크 삭제 중 오류가 발생했습니다.' });
+      }
+
+      // 삭제된 row가 없으면(즉, 해당 북마크가 없는 경우)
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: '해당 카드뉴스는 북마크되어 있지 않습니다.' });
+      }
+
+      res.status(200).json({ message: '북마크가 성공적으로 삭제되었습니다.' });
+    });
+  });
+};
+
 // 사용자의 모든 북마크 가져오기 API
 exports.getUserBookmarks = (req, res) => {
   const { userid } = req.body;
@@ -1311,5 +1347,3 @@ exports.changeUserName = (req, res) => {
     res.status(200).json({ message: '사용자 닉네임이 성공적으로 변경되었습니다.' });
   });
 };
-
-

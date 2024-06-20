@@ -63,6 +63,9 @@ router.post("/saveCardNews",userController.saveCardNews);
 // 북마크 추가 라우트
 router.post("/addBookmark",userController.addBookmark);
 
+// 북마크 삭제 라우트
+router.post("/deleteBookmark",userController.deleteBookmark);
+
 // 사용자의 모든 북마크 가져오기 라우트
 router.post("/getUserBookmarks",userController.getUserBookmarks);
 
