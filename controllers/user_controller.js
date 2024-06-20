@@ -655,52 +655,6 @@ exports.getAllDiaries = (req, res) => {
   });
 };
 
-// 도우미 함수
-function getUserInfo(userid) {
-  return new Promise((resolve, reject) => {
-    const getUserInfoQuery = 'SELECT * FROM user WHERE userid = ?';
-
-    connection.query(getUserInfoQuery, [userid], (userErr, userResult) => {
-      if (userErr) {
-        reject(userErr);
-      } else {
-        if (userResult.length === 0) {
-          reject(new Error('사용자를 찾을 수 없습니다.'));
-        } else {
-          const userInfo = {
-            nickname: userResult[0].name,
-            profileImage: userResult[0].image_url,
-          };
-          resolve(userInfo);
-        }
-      }
-    });
-  });
-}
-
-// 도우미 함수: 카드뉴스에 연결된 해시태그 불러오기
-function getHashtagsForCardNews(cardNewsId) {
-  return new Promise((resolve, reject) => {
-    const getHashtagsQuery = `
-      SELECT tag.hashtag
-      FROM cardNewsHashtags
-      JOIN tag ON cardNewsHashtags.hashtagId = tag.tagid
-      WHERE cardNewsHashtags.cardNewsId = ?;
-    `;
-
-    connection.query(getHashtagsQuery, [cardNewsId], (hashtagsErr, hashtagsResult) => {
-      if (hashtagsErr) {
-        reject(hashtagsErr);
-        return;
-      }
-
-      const hashtags = hashtagsResult.map(tag => tag.hashtag);
-
-      resolve(hashtags);
-    });
-  });
-}
-
 // 스케줄 아이템 저장 API
 exports.saveScheduleItem = (req, res) => {
   const { scheduleId, dayId, startTime, endTime, cardNewsId } = req.body;
@@ -1149,16 +1103,17 @@ exports.addBookmark = (req, res) => {
       return res.status(404).json({ error: '사용자를 찾을 수 없습니다' });
     }
 
-  const userId = userResult[0].id;
+    const userId = userResult[0].id;
 
-  const addBookmarkQuery = 'INSERT INTO Bookmarks (userId, cardNewsId) VALUES (?, ?)';
-  connection.query(addBookmarkQuery, [userId, cardNewsId], (err, result) => {
+    // 2. 북마크 추가 쿼리 실행
+    const addBookmarkQuery = 'INSERT INTO Bookmarks (userId, cardNewsId) VALUES (?, ?)';
+    connection.query(addBookmarkQuery, [userId, cardNewsId], (err, result) => {
       if (err) {
-          if (err.code === 'ER_DUP_ENTRY') {
-              return res.status(400).json({ error: '이미 북마크한 카드뉴스입니다.' });
-          }
-          console.error(err);
-          return res.status(500).json({ error: '북마크 추가 중 오류가 발생했습니다.' });
+        if (err.code === 'ER_DUP_ENTRY') {
+          return res.status(400).json({ error: '이미 북마크한 카드뉴스입니다.' });
+        }
+        console.error(err);
+        return res.status(500).json({ error: '북마크 추가 중 오류가 발생했습니다.' });
       }
       res.status(200).json({ message: '북마크가 성공적으로 추가되었습니다.' });
     });
@@ -1201,57 +1156,88 @@ exports.deleteBookmark = (req, res) => {
   });
 };
 
-// 사용자의 모든 북마크 가져오기 API 
+// 도우미 함수
+function getUserInfo(userid) {
+  return new Promise((resolve, reject) => {
+    const getUserInfoQuery = 'SELECT * FROM user WHERE userid = ?';
+
+    connection.query(getUserInfoQuery, [userid], (userErr, userResult) => {
+      if (userErr) {
+        reject(userErr);
+      } else {
+        if (userResult.length === 0) {
+          reject(new Error('사용자를 찾을 수 없습니다.'));
+        } else {
+          const userInfo = {
+            nickname: userResult[0].name,
+            profileImage: userResult[0].image_url,
+          };
+          resolve(userInfo);
+        }
+      }
+    });
+  });
+}
+
+// 도우미 함수: 카드뉴스에 연결된 해시태그 불러오기
+function getHashtagsForCardNews(cardNewsId) {
+  return new Promise((resolve, reject) => {
+    const getHashtagsQuery = `
+      SELECT tag.hashtag
+      FROM cardNewsHashtags
+      JOIN tag ON cardNewsHashtags.hashtagId = tag.tagid
+      WHERE cardNewsHashtags.cardNewsId = ?;
+    `;
+
+    connection.query(getHashtagsQuery, [cardNewsId], (hashtagsErr, hashtagsResult) => {
+      if (hashtagsErr) {
+        reject(hashtagsErr);
+        return;
+      }
+
+      const hashtags = hashtagsResult.map(tag => tag.hashtag);
+
+      resolve(hashtags);
+    });
+  });
+}
+
+// 사용자의 모든 북마크 가져오기 API
 exports.getUserBookmarks = (req, res) => {
   const { userid } = req.body;
 
-  // 1. 사용자의 id 가져오기
-  const getUserQuery = 'SELECT id FROM user WHERE userid = ?';
-  connection.query(getUserQuery, [userid], (err, userResult) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: '사용자 ID를 가져오는 중 오류가 발생했습니다' });
-    }
-
-    if (userResult.length === 0) {
-      return res.status(404).json({ error: '사용자를 찾을 수 없습니다' });
-    }
-
-    const userId = userResult[0].id;
-
-    // 2. 북마크와 카드뉴스 정보를 함께 가져오기
-    const getUserBookmarksQuery = `
-      SELECT cn.cardNewsId, cn.title, cn.content, cn.image_url, cn.createDate,
-             u.name AS userInfo_nickname, u.image_url AS userInfo_profileImage
-      FROM Bookmarks b
-      JOIN cardNews cn ON b.cardNewsId = cn.cardNewsId
-      LEFT JOIN user u ON cn.userid = u.id
-      WHERE b.userId = ?
-    `;
-    connection.query(getUserBookmarksQuery, [userId], (err, results) => {
-      if (err) {
-        console.error('Error fetching bookmarks:', err);
-        return res.status(500).json({ error: '북마크를 가져오는 중 오류가 발생했습니다.' });
-      }
-
-      // 결과를 필요한 형식으로 가공
-      const formattedBookmarks = results.map(result => ({
-        cardNewsId: result.cardNewsId,
-        title: result.title,
-        content: result.content,
-        image_url: result.image_url,
-        createDate: result.createDate,
-        userInfo: {
-          nickname: result.userInfo_nickname || 'Unknown',
-          profileImage: result.userInfo_profileImage || ''
+  getUserInfo(userid)
+    .then(userInfo => {
+      const getBookmarksQuery = `
+        SELECT cn.*
+        FROM Bookmarks b
+        JOIN cardNews cn ON b.cardNewsId = cn.cardNewsId
+        WHERE b.userId = (SELECT id FROM user WHERE userid = ?)
+      `;
+      connection.query(getBookmarksQuery, [userid], async (err, bookmarksResult) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: '북마크를 가져오는 중 오류가 발생했습니다.' });
         }
-      }));
 
-      res.status(200).json({ bookmarks: formattedBookmarks });
+        try {
+          const bookmarks = await Promise.all(bookmarksResult.map(async bookmark => {
+            const hashtags = await getHashtagsForCardNews(bookmark.cardNewsId);
+            return { ...bookmark, hashtags };
+          }));
+
+          res.status(200).json({ userInfo, bookmarks });
+        } catch (error) {
+          console.error(error);
+          res.status(500).json({ error: '해시태그를 가져오는 중 오류가 발생했습니다.' });
+        }
+      });
+    })
+    .catch(error => {
+      console.error(error);
+      res.status(500).json({ error: '사용자 정보를 가져오는 중 오류가 발생했습니다.' });
     });
-  });
 };
-
 
 exports.saveSchedule = (req, res) => {
   const { userId, dayId, title } = req.body;
